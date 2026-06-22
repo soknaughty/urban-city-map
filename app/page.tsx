@@ -1,85 +1,43 @@
-'use client';
-
-import { useState } from 'react';
-
-export default function RootLandingPage() {
-  const [userType, setUserType] = useState<'advertiser' | 'distributor'>('advertiser');
-
+export default function MarketingLandingPage() {
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6">
-      <div className="max-w-xl w-full bg-white border border-gray-200 rounded-xl shadow-sm p-8">
-        
-        <header className="text-center mb-8">
-          <h1 className="text-4xl font-extrabold text-gray-900 mb-2">City Paws Map</h1>
-          <p className="text-gray-500">Join our network and manage your map data.</p>
-        </header>
-
-        {/* Form Type Toggle */}
-        <div className="flex justify-center mb-8 bg-gray-100 p-1 rounded-lg">
-          <button
-            onClick={() => setUserType('advertiser')}
-            type="button"
-            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
-              userType === 'advertiser' 
-                ? 'bg-white shadow-sm text-blue-600' 
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
+    <div className="min-h-screen bg-gray-50 flex flex-col justify-between">
+      {/* Navbar */}
+      <nav className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="max-w-7xl mx-auto flex justify-between items-center">
+          <span className="text-xl font-bold text-gray-900 tracking-tight">Furstops</span>
+          <a 
+            href="https://join.furstops.com" 
+            className="text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-md shadow-sm transition-colors"
           >
-            Advertiser Intake
-          </button>
-          <button
-            onClick={() => setUserType('distributor')}
-            type="button"
-            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
-              userType === 'distributor' 
-                ? 'bg-white shadow-sm text-blue-600' 
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Distributor Intake
-          </button>
+            Join Network
+          </a>
         </div>
+      </nav>
 
-        {/* Interactive Form */}
-        <form className="space-y-5">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Full Name / Business Name</label>
-            <input 
-              type="text" 
-              required 
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" 
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Email Address</label>
-            <input 
-              type="email" 
-              required 
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" 
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Target City / Region</label>
-            <input 
-              type="text" 
-              required 
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" 
-            />
-          </div>
-
-          <div className="pt-4">
-            <button 
-              type="button" 
-              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+      {/* Hero Section */}
+      <main className="flex-1 flex items-center justify-center px-6 py-12">
+        <div className="max-w-3xl text-center space-y-6">
+          <h1 className="text-5xl font-extrabold text-gray-900 tracking-tight sm:text-6xl">
+            The Interactive Map Network for Local Pet Ecosystems
+          </h1>
+          <p className="text-xl text-gray-600 max-w-xl mx-auto">
+            Connecting premium advertisers and regional distributors into unified, custom-branded mapping experiences.
+          </p>
+          <div className="pt-4 flex justify-center space-x-4">
+            <a 
+              href="https://join.furstops.com" 
+              className="px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 shadow-md transition-colors"
             >
-              Submit {userType === 'advertiser' ? 'Advertiser' : 'Distributor'} Application
-            </button>
+              Apply as Partner
+            </a>
           </div>
-        </form>
+        </div>
+      </main>
 
-      </div>
+      {/* Footer */}
+      <footer className="bg-white border-t border-gray-200 py-6 text-center text-sm text-gray-500">
+        &copy; {new Date().getFullYear()} Furstops. All rights reserved.
+      </footer>
     </div>
   );
 }
