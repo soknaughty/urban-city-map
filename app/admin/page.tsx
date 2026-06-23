@@ -647,7 +647,6 @@ function StatCard({ label, value, loading }: { label: string; value: number | st
   );
 }
 
-// RESTORED & ALIGNED: Unified layout helpers
 function AlertRow({ a }: { a: Alert }) {
   const hasSponsor = !!(a.sponsor_name && a.sponsor_name.trim());
   return (
@@ -669,6 +668,7 @@ function AlertRow({ a }: { a: Alert }) {
   );
 }
 
+// Status Badges and Render Modifiers
 function Badge({ active }: { active: boolean }) {
   return (
     <span
@@ -874,7 +874,6 @@ function DistributorsSection() {
                     {mapHref ? (
                       <a href={mapHref} target="_blank" rel="noopener noreferrer" className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-50">View Map</a>
                     ) : (
-                      /* FIXED: Shorthand aligned value */
                       <span className="text-xs text-gray-400 italic px-3 py-1">No Map</span>
                     )}
                   </div>
@@ -1088,7 +1087,7 @@ function AdvertisersSection() {
                     )}
                   </td>
                   <td className="px-4 py-3 text-gray-600">
-                    {/* FIXED: Formatted text output layout label strictly to read Unassigned per image_37945e.png instruction */}
+                    {/* FIXED: Formatted text output layout strictly to read 'Unassigned' per your instruction */}
                     {advDists.length > 0 ? advDists.map((d) => d.name).join(", ") : <span className="text-gray-400 italic">Unassigned</span>}
                   </td>
                   <td className="px-4 py-3 font-bold text-gray-700">
@@ -1291,7 +1290,10 @@ function AdvertiserForm({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
-        if (!r.ok) throw new Error Clyde(`Save failed: ${r.status}`);
+        
+        // FIXED: Removed the accidental 'Clyde' identifier artifact from this error constructor
+        if (!r.ok) throw new Error(`Save failed: ${r.status}`);
+        
         try {
           const saved = await r.json();
           savedId = saved?.id ?? savedId;
@@ -1370,7 +1372,6 @@ function AdvertiserForm({
   );
 }
 
-// RESTORED: Core baseline components
 function SubscribersSection() {
   const { data, loading, error } = useFetch<{ total: number; subscribers: Subscriber[] }>("/subscribers/");
   const subs = data?.subscribers ?? [];
