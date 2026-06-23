@@ -13,9 +13,7 @@ export function middleware(req: NextRequest) {
   // 1. LOCAL & PREVIEW PATHS
   if (isLocal || isVercelPreview) {
     if (url.pathname.startsWith('/admin')) return NextResponse.next();
-    // Simulate subdomains locally if the URL explicitly includes them
-    if (url.pathname.startsWith('/join')) return NextResponse.next();
-    if (!cleanHostname.startsWith('app.') && !cleanHostname.startsWith('join.') && !cleanHostname.startsWith('dognotoes.')) {
+    if (!cleanHostname.startsWith('app.') && !cleanHostname.startsWith('dognotoes.')) {
       return NextResponse.next();
     }
   }
@@ -26,17 +24,12 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // 3. PRODUCTION INTAKE FORM SUBDOMAIN (join.furstops.com)
-  if (cleanHostname === `join.${baseDomain}`) {
-    return NextResponse.rewrite(new URL(`/join${url.pathname}`, req.url));
-  }
-
-  // 4. PRODUCTION ADMIN PORTAL SUBDOMAIN (app.furstops.com)
+  // 3. PRODUCTION ADMIN PORTAL SUBDOMAIN (app.furstops.com)
   if (cleanHostname === `app.${baseDomain}`) {
     return NextResponse.rewrite(new URL(`/admin${url.pathname}`, req.url));
   }
 
-  // 5. PRODUCTION WILDCARD TENANT MAPS (e.g., dognotoes.furstops.com)
+  // 4. PRODUCTION WILDCARD TENANT MAPS (e.g., dognotoes.furstops.com)
   const subdomain = cleanHostname.replace(`.${baseDomain}`, '');
   return NextResponse.rewrite(new URL(`/maps/${subdomain}${url.pathname}`, req.url));
 }
