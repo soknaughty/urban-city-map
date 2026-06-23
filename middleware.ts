@@ -31,7 +31,7 @@ export function middleware(req: NextRequest) {
 
   // 4. PRODUCTION WILDCARD TENANT MAPS (e.g., dognotoes.furstops.com)
   const subdomain = cleanHostname.replace(`.${baseDomain}`, '');
-  return NextResponse.rewrite(new URL(`/maps/${subdomain}${url.pathname}`, req.url));
+  return NextResponse.rewrite(new URL(`/map/${subdomain}${url.pathname}`, req.url));
 }
 
 export const config = {
