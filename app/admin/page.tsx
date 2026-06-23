@@ -410,7 +410,6 @@ function OnboardAdSection() {
         if (!assignRes.ok) console.warn("Optional network link attachment failed.");
       }
 
-      // RESTORED: Direct instant forward execution to Stripe Checkout Portal
       const stripeRedirectGateway = savedAdvertiser?.checkout_url || savedAdvertiser?.stripe_url || `https://billing.furstops.com/collect?client=${newId}&tier=${form.tier}&ref=${form.distributor_id || "direct"}`;
       window.location.href = stripeRedirectGateway;
       
@@ -468,7 +467,7 @@ function OnboardAdSection() {
             <input className={inputClass} value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} placeholder="(555) 000-0000" />
           </Field>
           <Field label="Website URL link (Optional)">
-            <input className={inputClass} type="url" value={form.website_url} onChange={e => setForm({...form, website_url: e.target.value})} placeholder="https://example.com" />
+            <input className={inputClass} type="url" value={form.website_url} onChange={(e) => setForm({ ...form, website_url: e.target.value })} placeholder="https://example.com" />
           </Field>
         </div>
 
@@ -522,8 +521,8 @@ function OnboardDisSection() {
       if (!res.ok) throw new Error(`Distributor save processing failed with code: ${res.status}`);
       const savedDistributor = await res.json();
       
-      // RESTORED: Direct instant forward execution to Stripe Checkout Portal matching image_428c62.png button parameters
-      const stripeRedirectGateway = savedDistributor?.checkout_url || savedDistributor?.stripe_url || `https://billing.furstops.com/checkout?distributor=${savedDistributor?.id || computedSlug}`;
+      // FIXED: Adjusted dynamic fallback destination string to use /collect format for clean table grid alignment passes
+      const stripeRedirectGateway = savedDistributor?.checkout_url || savedDistributor?.stripe_url || `https://billing.furstops.com/collect?distributor=${savedDistributor?.id || computedSlug}`;
       window.location.href = stripeRedirectGateway;
       
     } catch (err: any) {
@@ -538,7 +537,7 @@ function OnboardDisSection() {
         <Building2 className="h-5 w-5 text-[#1B4332] shrink-0 mt-0.5" />
         <div>
           <p className="font-bold text-slate-900">Partner Host Distributor Onboarding Center</p>
-          <p className="mt-1 text-slate-600">Register prime retail anchors. Clicking authorization instantly forwards the page to Stripe billing pages to enable your dynamic subdomains.</p>
+          <p className="mt-1 text-slate-600">Register prime retail network anchors. Clicking authorization instantly forwards the page to Stripe billing pages to enable your dynamic subdomains.</p>
         </div>
       </div>
 
@@ -560,21 +559,20 @@ function OnboardDisSection() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Field label="Corporate Website Link (Optional)">
-            <input className={inputClass} type="url" value={form.website_url} onChange={e => setForm({...form, website_url: e.target.value})} placeholder="https://partnerbrand.com" />
+            <input className={inputClass} type="url" value={form.website_url} onChange={(e) => setForm({ ...form, website_url: e.target.value })} placeholder="https://partnerbrand.com" />
           </Field>
           <Field label="Custom Branded Theme Accent Hex Color Picker">
             <div className="flex gap-2">
               <input type="color" className="w-12 h-10 p-1 border border-gray-300 rounded-md bg-white cursor-pointer" value={form.brand_color} onChange={e => setForm({...form, brand_color: e.target.value})} />
-              <input className={inputClass} value={form.brand_color} onChange={e => setForm({...form, brand_color: e.target.value})} placeholder="#1B4332" maxLength={7} />
+              <input className={inputClass} value={form.brand_color} onChange={(e) => setForm({...form, brand_color: e.target.value})} placeholder="#1B4332" maxLength={7} />
             </div>
           </Field>
         </div>
 
         <Field label="Brand Logo Image Vector Asset URL Link (Optional)">
-          <input className={inputClass} type="url" value={form.logo_url} onChange={e => setForm({...form, logo_url: e.target.value})} placeholder="https://assets.domain/logo.png" />
+          <input className={inputClass} type="url" value={form.logo_url} onChange={(e) => setForm({ ...form, logo_url: e.target.value })} placeholder="https://assets.domain/logo.png" />
         </Field>
 
-        {/* RESTORED: Submit button exactly as shown in image_428c62.png */}
         <button type="submit" disabled={loading} className="w-full py-3 text-white font-bold rounded-lg transition-all hover:opacity-90 disabled:opacity-50 shadow-md" style={{ backgroundColor: "#1B4332" }}>
           {loading ? "Connecting to Payment Gateway..." : "Authorize and Allocate Map Subdomain Space"}
         </button>
@@ -935,7 +933,7 @@ function AdvertisersSection() {
   });
   
   const distributors = asArray<Distributor>(distQ.data);
-  const [showForm, setShowForm] = useState(false);
+  const [showForm, useStateForm] = useState(false);
   const [editing, setEditing] = useState<Advertiser | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -966,7 +964,7 @@ function AdvertisersSection() {
       <div className="flex items-center justify-between">
         <p className="text-sm text-gray-500">{advertisers.length} total</p>
         <button
-          onClick={() => setShowForm(true)}
+          onClick={() => useStateForm(true)}
           className="rounded-md px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
           style={{ backgroundColor: "#1B4332" }}
         >
@@ -1061,9 +1059,9 @@ function AdvertisersSection() {
       {showForm && (
         <AdvertiserForm
           distributors={distributors}
-          onClose={() => setShowForm(false)}
+          onClose={() => useStateForm(false)}
           onSaved={() => {
-            setShowForm(false);
+            useStateForm(false);
             refetch();
           }}
         />
