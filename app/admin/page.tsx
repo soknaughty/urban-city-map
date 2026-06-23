@@ -393,7 +393,7 @@ function DashboardSection() {
     <div className="space-y-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Total Distributors" value={data?.total_distributors ?? 0} loading={loading} />
-        <StatCard label="Active Distributors" value={data?.active_distributors ?? 0} loading={loading} />
+        <StatCard label="Active Distributors" value={data?.total_distributors ?? 0} loading={loading} />
         <StatCard label="Total Advertisers" value={data?.total_advertisers ?? 0} loading={loading} />
         <StatCard label="Total Subscribers" value={data?.total_subscribers ?? 0} loading={loading} />
       </div>
@@ -550,7 +550,6 @@ function DistributorsSection() {
                 status === "green" ? "#16a34a" : status === "yellow" ? "#eab308" : status === "red" ? "#dc2626" : "#d1d5db";
               const slug = anyD.slug;
               
-              // FIXED: Dynamic environment check turns relative path into absolute tenant domain link
               const mapHref = slug
                 ? typeof window !== "undefined" && window.location.hostname.includes("localhost")
                   ? `http://${slug}.localhost:3000`
@@ -798,6 +797,702 @@ function EditDistributorForm({
   };
   const [form, setForm] = useState(initial);
   const slug = slugify(form.name);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setErr(null);
+    try {
+      const body: Record<string, unknown> = {};
+      if (form.name !== initial.name) {
+        body.name = form.name;
+        if (slug !== distributor.slug) body.slug = slug;
+      }
+      if (form.address !== initial.address) body.address_string = form.address;
+      if (form.website_url !== initial.website_url) body.website_url = form.website_url;
+      if (form.logo_url !== initial.logo_url) body.logo_url = form.logo_url;
+      if (form.brand_color !== initial.brand_color) body.brand_color = form.brand_color;
+      if (form.is_active !== initial.is_active) body.is_active = form.is_active;
+
+      if (Object.keys(body).length === 0) {
+        onSaved();
+        return;
+      }
+      const r = await authFetch(`/distributors/${distributor.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) throw new Error(`Save failed: ${r.status}`);
+      onSaved();
+    } catch (e: any) {
+      setErr(e.message || String(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal title="Edit Distributor" onClose={onClose}>
+      <form onSubmit={submit} className="space-y-3">
+        <Field label="Name">
+          <input
+            className={inputClass}
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            required
+          />
+        </Field>
+        <Field label="Slug">
+          <input className={inputClass + " bg-gray-50 text-gray-500"} value={slug} readOnly tabIndex={-1} />
+        </Field>
+        <Field label="Address">
+          <input
+            className={inputClass}
+            value={form.address}
+            onChange={(e) => setForm({ ...form, address: e.target.value })}
+            required
+          />
+        </Field>
+        <Field label="Website URL">
+          <input
+            className={inputClass}
+            type="url"
+            value={form.website_url}
+            onChange={(e) => setForm({ ...form, website_url: e.target.value })}
+          />
+        </Field>
+        <Field label="Logo URL">
+          <input
+            className={inputClass}
+            type="url"
+            value={form.logo_url}
+            onChange={(e) => setForm({ ...form, logo_url: e.target.value })}
+            placeholder="https://…"
+          />
+        </Field>
+        <Field label="Brand Color">
+          <input
+            className={inputClass + " h-10 p-1"}
+            type="color"
+            value={form.brand_color}
+            onChange={(e) => setForm({ ...form, brand_color: e.target.value })}
+          />
+        </Field>
+        <label className="flex items-center gap-2 text-sm text-gray-700">
+          <input
+            type="checkbox"
+            checked={form.is_active}
+            onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
+          />
+          Is Active
+        </label>
+        {err && <p className="text-sm text-red-600">{err}</p>}
+        <div className="flex justify-end gap-2 pt-2">
+          <button type="button" onClick={onClose} className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 bg-white hover:bg-gray-50">
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={saving}
+            className="rounded-md px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            style={{ backgroundColor: "#1B4332" }}
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+const ADVERTISER_CATEGORIES: { value: string; label: string }[] = [
+  { value: "dining", label: "Cafe" },
+  { value: "parks", label: "Parks" },
+  { value: "emergency_vet", label: "Emergency Vet" },
+  { value: "veterinarian", label: "Veterinarian" },
+  { value: "groomer", label: "Groomer" },
+  { value: "daycare", label: "Daycare" },
+];
+
+function AdvertisersSection() {
+  const { data, loading, error, refetch } = useFetch<any>("/advertisers/");
+  const distQ = useFetch<any>("/distributors/");
+  const rawAdvertisers = asArray<any>(data);
+  
+  const advertisers: Advertiser[] = rawAdvertisers.map((a: any) => {
+    const distributor_id =
+      a.distributor_id ??
+      a.distributor?.id ??
+      (Array.isArray(a.distributor_ids) ? a.distributor_ids[0] : undefined) ??
+      (Array.isArray(a.distributors) ? (a.distributors[0]?.id ?? a.distributors[0]) : undefined);
+    return {
+      ...a,
+      address: a.address ?? a.address_string ?? "",
+      address_string: a.address_string ?? a.address ?? "",
+      distributor_id: distributor_id ? String(distributor_id) : undefined,
+    };
+  });
+  
+  const distributors = asArray<Distributor>(distQ.data);
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<Advertiser | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const distMap = new Map<string, Distributor>();
+  distributors.forEach((d) => distMap.set(String(d.id), d));
+
+  const getDistributorsFor = (a: Advertiser): Distributor[] => {
+    const ids: string[] = [];
+    const anyA = a as any;
+    if (Array.isArray(anyA.distributor_ids)) ids.push(...anyA.distributor_ids.map(String));
+    else if (Array.isArray(anyA.distributors))
+      ids.push(...anyA.distributors.map((x: any) => String(x.id ?? x)));
+    else if (a.distributor_id) ids.push(String(a.distributor_id));
+    return ids.map((id) => distMap.get(id)).filter(Boolean) as Distributor[];
+  };
+
+  const toggle = async (a: Advertiser) => {
+    setBusyId(a.id);
+    try {
+      await authFetch(`/advertisers/${a.id}/activate?is_active=${!a.active}`, { method: "PATCH" });
+      refetch();
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-gray-500">{advertisers.length} total</p>
+        <button
+          onClick={() => setShowForm(true)}
+          className="rounded-md px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
+          style={{ backgroundColor: "#1B4332" }}
+        >
+          + Add Advertiser
+        </button>
+      </div>
+
+      {error && <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
+
+      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+        <table className="min-w-full text-sm">
+          <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <tr>
+              <th className="px-4 py-3">Business Name</th>
+              <th className="px-4 py-3">Category</th>
+              <th className="px-4 py-3">Address</th>
+              <th className="px-4 py-3">Distributor</th>
+              <th className="px-4 py-3">Active</th>
+              <th className="px-4 py-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {loading && (
+              <tr>
+                <td colSpan={6} className="px-4 py-6 text-center text-gray-500">
+                  Loading…
+                </td>
+              </tr>
+            )}
+            {!loading && advertisers.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-4 py-6 text-center text-gray-500">
+                  No advertisers.
+                </td>
+              </tr>
+            )}
+            {advertisers.map((a) => {
+              const advDists = getDistributorsFor(a);
+              const distributorSlug =
+                (a as any).distributor_slug || advDists.find((d) => d.slug)?.slug || "";
+              
+              const mapHref = distributorSlug
+                ? typeof window !== "undefined" && window.location.hostname.includes("localhost")
+                  ? `http://${distributorSlug}.localhost:3000`
+                  : `https://${distributorSlug}.furstops.com`
+                : "";
+
+              return (
+                <tr key={a.id}>
+                  <td className="px-4 py-3 font-medium text-gray-900">{a.business_name}</td>
+                  <td className="px-4 py-3 text-gray-600">{a.category}</td>
+                  <td className="px-4 py-3 text-gray-600 max-w-[200px]">
+                    {a.address ? (
+                      <TooltipProvider delayDuration={150}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="block truncate cursor-help">{a.address}</span>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs break-words">
+                            {a.address}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    ) : (
+                      <span className="text-gray-400 italic">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">
+                    {advDists.length > 0 ? (
+                      advDists.map((d) => d.name).join(", ")
+                    ) : (
+                      <span className="text-gray-400 italic">Unassigned</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge active={!!a.active} />
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex justify-end gap-2">
+                      <button
+                        disabled={busyId === a.id}
+                        onClick={() => toggle(a)}
+                        className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-50 disabled:opacity-50 text-gray-700 bg-white"
+                      >
+                        {a.active ? "Deactivate" : "Activate"}
+                      </button>
+                      <button
+                        onClick={() => setEditing(a)}
+                        className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-50 text-gray-700 bg-white"
+                      >
+                        Edit
+                      </button>
+                      {mapHref ? (
+                        <a
+                          href={mapHref}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-50 text-gray-700 bg-white"
+                        >
+                          View Map
+                        </a>
+                      ) : (
+                        <span className="text-xs text-gray-400 italic px-3 py-1">No map</span>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {showForm && (
+        <AdvertiserForm
+          distributors={distributors}
+          onClose={() => setShowForm(false)}
+          onSaved={() => {
+            setShowForm(false);
+            refetch();
+          }}
+        />
+      )}
+
+      {editing && (
+        <AdvertiserForm
+          distributors={distributors}
+          advertiser={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            refetch();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function AdvertiserForm({
+  distributors,
+  advertiser,
+  onClose,
+  onSaved,
+}: {
+  distributors: Distributor[];
+  advertiser?: Advertiser;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const isEdit = !!advertiser;
+  const initial = {
+    business_name: advertiser?.business_name || "",
+    category: advertiser?.category || ADVERTISER_CATEGORIES[0].value,
+    address: (advertiser as any)?.address || (advertiser as any)?.address_string || "",
+    phone: (advertiser as any)?.phone || "",
+    website_url: (advertiser as any)?.website_url || "",
+    insider_tip: (advertiser as any)?.insider_tip || "",
+    distributor_id: advertiser?.distributor_id || (isEdit ? "" : distributors[0]?.id || ""),
+    tier: advertiser?.tier || "silver",
+  };
+  const [form, setForm] = useState(initial);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setErr(null);
+    try {
+      const toPayloadKey = (k: string) => (k === "address" ? "address_string" : k);
+
+      let body: any;
+      let skipSave = false;
+      if (isEdit) {
+        body = {};
+        (Object.keys(form) as (keyof typeof form)[]).forEach((k) => {
+          if (k === "distributor_id") return;
+          if (form[k] !== (initial as any)[k]) {
+            body[toPayloadKey(k as string)] = form[k];
+          }
+        });
+        if (Object.keys(body).length === 0) {
+          skipSave = true;
+        }
+      } else {
+        body = {
+          business_name: form.business_name,
+          category: form.category,
+          address_string: form.address,
+          phone: form.phone || undefined,
+          website_url: form.website_url || undefined,
+          insider_tip: form.insider_tip || undefined,
+          tier: form.tier,
+        };
+      }
+
+      let savedId: string | undefined = advertiser?.id;
+      if (!skipSave) {
+        const r = await authFetch(isEdit ? `/advertisers/${advertiser!.id}` : `/advertisers/`, {
+          method: isEdit ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!r.ok) throw new Error(`Save failed: ${r.status}`);
+        try {
+          const saved = await r.json();
+          savedId = saved?.id ?? savedId;
+        } catch {
+          // ignore
+        }
+      }
+
+      const distributorChanged = !isEdit || form.distributor_id !== (initial as any).distributor_id;
+      if (savedId && distributorChanged && form.distributor_id) {
+        const ar = await authFetch(`/maps/assignments`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            distributor_id: form.distributor_id,
+            advertiser_id: savedId,
+          }),
+        });
+        if (!ar.ok) throw new Error(`Assignment failed: ${ar.status}`);
+      }
+
+      onSaved();
+    } catch (e: any) {
+      setErr(e.message || String(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal title={isEdit ? "Edit Advertiser" : "Add Advertiser"} onClose={onClose}>
+      <form onSubmit={submit} className="space-y-3">
+        <Field label="Business Name">
+          <input
+            className={inputClass}
+            value={form.business_name}
+            onChange={(e) => setForm({ ...form, business_name: e.target.value })}
+            required
+          />
+        </Field>
+        <Field label="Category">
+          <select
+            className={inputClass}
+            value={form.category}
+            onChange={(e) => setForm({ ...form, category: e.target.value })}
+          >
+            {ADVERTISER_CATEGORIES.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Address">
+          <input
+            className={inputClass}
+            value={form.address}
+            onChange={(e) => setForm({ ...form, address: e.target.value })}
+            required
+          />
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Phone">
+            <input
+              className={inputClass}
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            />
+          </Field>
+          <Field label="Website URL">
+            <input
+              className={inputClass}
+              type="url"
+              value={form.website_url}
+              onChange={(e) => setForm({ ...form, website_url: e.target.value })}
+            />
+          </Field>
+        </div>
+        <Field label="Distributor">
+          <select
+            className={inputClass}
+            value={form.distributor_id}
+            onChange={(e) => setForm({ ...form, distributor_id: e.target.value })}
+          >
+            <option value="">— None —</option>
+            {distributors.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Insider Tip">
+          <input
+            className={inputClass}
+            value={form.insider_tip}
+            onChange={(e) => setForm({ ...form, insider_tip: e.target.value })}
+          />
+        </Field>
+        <Field label="Tier">
+          <select className={inputClass} value={form.tier} onChange={(e) => setForm({ ...form, tier: e.target.value })}>
+            <option value="silver">Silver</option>
+            <option value="gold">Gold</option>
+          </select>
+        </Field>
+        {err && <p className="text-sm text-red-600">{err}</p>}
+        <div className="flex justify-end gap-2 pt-2">
+          <button type="button" onClick={onClose} className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 bg-white hover:bg-gray-50">
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={saving}
+            className="rounded-md px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            style={{ backgroundColor: "#1B4332" }}
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function SubscribersSection() {
+  const { data, loading, error } = useFetch<{ total: number; subscribers: Subscriber[] }>("/subscribers/");
+  const subs = data?.subscribers ?? [];
+  const total = data?.total ?? subs.length;
+
+  const exportCsv = () => {
+    const rows = [
+      ["Email", "Distributor ID", "Visit Count", "First Seen", "Last Seen"],
+      ...subs.map((s: any) => [
+        s.email,
+        s.distributor_id || "",
+        String(s.visit_count ?? ""),
+        s.created_at || "",
+        s.last_seen_at || "",
+      ]),
+    ];
+    const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `subscribers-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-gray-700">
+          <span className="font-semibold">{total}</span> total subscribers
+        </p>
+        <button
+          onClick={exportCsv}
+          disabled={subs.length === 0}
+          className="rounded-md px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+          style={{ backgroundColor: "#1B4332" }}
+        >
+          Export to CSV
+        </button>
+      </div>
+
+      {error && <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
+
+      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+        <table className="min-w-full text-sm">
+          <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <tr>
+              <th className="px-4 py-3">Email</th>
+              <th className="px-4 py-3">Distributor ID</th>
+              <th className="px-4 py-3">Visit Count</th>
+              <th className="px-4 py-3">First Seen</th>
+              <th className="px-4 py-3">Last Seen</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {loading && (
+              <tr>
+                <td colSpan={5} className="px-4 py-6 text-center text-gray-500">
+                  Loading…
+                </td>
+              </tr>
+            )}
+            {!loading && subs.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-4 py-6 text-center text-gray-500">
+                  No subscribers.
+                </td>
+              </tr>
+            )}
+            {subs.map((s: any, i: number) => (
+              <tr key={s.email + i}>
+                <td className="px-4 py-3 font-medium text-gray-900">{s.email}</td>
+                <td className="px-4 py-3 text-gray-600 font-mono text-xs">{s.distributor_id || "—"}</td>
+                <td className="px-4 py-3 text-gray-600">{s.visit_count ?? 0}</td>
+                <td className="px-4 py-3 text-gray-600">{formatDate(s.created_at)}</td>
+                <td className="px-4 py-3 text-gray-600">{formatDate(s.last_seen_at)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function AlertsSection() {
+  const { data, loading, error, refetch } = useFetch<any>("/alerts/");
+  const alerts = asArray<Alert>(data);
+  const [showForm, setShowForm] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const toggle = async (a: Alert) => {
+    setBusyId(a.id);
+    try {
+      await authFetch(`/alerts/${a.id}/activate?is_active=${!a.active}`, { method: "PATCH" });
+      refetch();
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-gray-500">{alerts.length} total</p>
+        <button
+          onClick={() => setShowForm(true)}
+          className="rounded-md px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
+          style={{ backgroundColor: "#1B4332" }}
+        >
+          + Add Alert
+        </button>
+      </div>
+
+      {error && <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
+
+      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+        <table className="min-w-full text-sm">
+          <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <tr>
+              <th className="px-4 py-3">Title</th>
+              <th className="px-4 py-3">Sponsor</th>
+              <th className="px-4 py-3">Start Date</th>
+              <th className="px-4 py-3">End Date</th>
+              <th className="px-4 py-3">Scope</th>
+              <th className="px-4 py-3">Active</th>
+              <th className="px-4 py-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {loading && (
+              <tr>
+                <td colSpan={7} className="px-4 py-6 text-center text-gray-500">
+                  Loading…
+                </td>
+              </tr>
+            )}
+            {!loading && alerts.length === 0 && (
+              <tr>
+                <td colSpan={7} className="px-4 py-6 text-center text-gray-500">
+                  No alerts.
+                </td>
+              </tr>
+            )}
+            {alerts.map((a) => (
+              <tr key={a.id}>
+                <td className="px-4 py-3 font-medium text-gray-900">{a.title}</td>
+                <td className="px-4 py-3 text-gray-600">{a.sponsor_name || "—"}</td>
+                <td className="px-4 py-3 text-gray-600">{formatDate(a.start_date)}</td>
+                <td className="px-4 py-3 text-gray-600">{formatDate(a.end_date)}</td>
+                <td className="px-4 py-3 text-gray-600">{a.scope || "—"}</td>
+                <td className="px-4 py-3">
+                  <Badge active={!!a.active} />
+                </td>
+                <td className="px-4 py-3 text-right">
+                  <button
+                    disabled={busyId === a.id}
+                    onClick={() => toggle(a)}
+                    className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-50 disabled:opacity-50 text-gray-700 bg-white"
+                  >
+                    {a.active ? "Deactivate" : "Activate"}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {showForm && (
+        <AlertForm
+          onClose={() => setShowForm(false)}
+          onSaved={() => {
+            setShowForm(false);
+            refetch();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function AlertForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const [form, setForm] = useState({
+    title: "",
+    body: "",
+    sponsor_name: "",
+    sponsor_logo_url: "",
+    start_date: "",
+    end_date: "",
+    scope: "global",
+    is_active: true,
+  });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
