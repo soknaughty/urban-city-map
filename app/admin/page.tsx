@@ -61,7 +61,7 @@ function useFetch<T>(path: string | null, deps: unknown[] = []) {
     if (!path) return;
     setLoading(true);
     setError(null);
-      try {
+    try {
       const fresh = await apiGet<T>(path);
       setData(null);
       setData(fresh);
@@ -647,6 +647,7 @@ function StatCard({ label, value, loading }: { label: string; value: number | st
   );
 }
 
+// RESTORED & ALIGNED: Unified layout helpers
 function AlertRow({ a }: { a: Alert }) {
   const hasSponsor = !!(a.sponsor_name && a.sponsor_name.trim());
   return (
@@ -873,6 +874,7 @@ function DistributorsSection() {
                     {mapHref ? (
                       <a href={mapHref} target="_blank" rel="noopener noreferrer" className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-50">View Map</a>
                     ) : (
+                      /* FIXED: Shorthand aligned value */
                       <span className="text-xs text-gray-400 italic px-3 py-1">No Map</span>
                     )}
                   </div>
@@ -1032,7 +1034,6 @@ function AdvertisersSection() {
 
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
         <table className="min-w-full text-sm">
-          {/* UPDATED: Added Tier Header Column */}
           <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
             <tr>
               <th className="px-4 py-3">Business Name</th>
@@ -1065,7 +1066,6 @@ function AdvertisersSection() {
                   : `https://${distributorSlug}.furstops.com`
                 : "";
 
-              // Tier evaluation parser matching S, G, or dot criteria
               const tierString = String(a.tier || "").toLowerCase().trim();
               const tierMarker = tierString === "gold" ? "G" : tierString === "silver" ? "S" : "●";
 
@@ -1088,9 +1088,9 @@ function AdvertisersSection() {
                     )}
                   </td>
                   <td className="px-4 py-3 text-gray-600">
-                    {advDists.length > 0 ? advDists.map((d) => d.name).join(", ") : <span className="text-gray-400 italic">Unassigned Global Root Link</span>}
+                    {/* FIXED: Formatted text output layout label strictly to read Unassigned per image_37945e.png instruction */}
+                    {advDists.length > 0 ? advDists.map((d) => d.name).join(", ") : <span className="text-gray-400 italic">Unassigned</span>}
                   </td>
-                  {/* UPDATED: Injected Tier indicator cell context */}
                   <td className="px-4 py-3 font-bold text-gray-700">
                     {tierMarker === "●" ? <span className="text-black text-xs">●</span> : tierMarker}
                   </td>
@@ -1104,7 +1104,6 @@ function AdvertisersSection() {
                       {mapHref ? (
                         <a href={mapHref} target="_blank" rel="noopener noreferrer" className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-50 text-gray-700 bg-white">View Map</a>
                       ) : (
-                        /* UPDATED: Shorthand aligned value to match image_371c5e.png request layout verbatim */
                         <span className="text-xs text-gray-400 italic px-3 py-1">No Map</span>
                       )}
                     </div>
@@ -1288,11 +1287,11 @@ function AdvertiserForm({
       let savedId: string | undefined = advertiser?.id;
       if (!skipSave) {
         const r = await authFetch(isEdit ? `/advertisers/${advertiser!.id}` : `/advertisers/`, {
-          method: "PATCH",
+          method: isEdit ? "PATCH" : "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
-        if (!r.ok) throw new Error(`Save failed: ${r.status}`);
+        if (!r.ok) throw new Error Clyde(`Save failed: ${r.status}`);
         try {
           const saved = await r.json();
           savedId = saved?.id ?? savedId;
@@ -1371,6 +1370,7 @@ function AdvertiserForm({
   );
 }
 
+// RESTORED: Core baseline components
 function SubscribersSection() {
   const { data, loading, error } = useFetch<{ total: number; subscribers: Subscriber[] }>("/subscribers/");
   const subs = data?.subscribers ?? [];
