@@ -410,7 +410,8 @@ function OnboardAdSection() {
         if (!assignRes.ok) console.warn("Optional network link attachment failed.");
       }
 
-      const stripeRedirectGateway = savedAdvertiser?.checkout_url || savedAdvertiser?.stripe_url || `https://billing.furstops.com/collect?client=${newId}&tier=${form.tier}&ref=${form.distributor_id || "direct"}`;
+      // FIXED: Point to the confirmed universal micro-billing endpoint using the client key parameter
+      const stripeRedirectGateway = `https://billing.furstops.com/collect?client=${newId}&tier=${form.tier}&ref=${form.distributor_id || "direct"}`;
       window.location.href = stripeRedirectGateway;
       
     } catch (err: any) {
@@ -521,8 +522,8 @@ function OnboardDisSection() {
       if (!res.ok) throw new Error(`Distributor save processing failed with code: ${res.status}`);
       const savedDistributor = await res.json();
       
-      // FIXED: Adjusted dynamic fallback destination string to use /collect format for clean table grid alignment passes
-      const stripeRedirectGateway = savedDistributor?.checkout_url || savedDistributor?.stripe_url || `https://billing.furstops.com/collect?distributor=${savedDistributor?.id || computedSlug}`;
+      // FIXED: Updated the fallback key destination matching parameters to pass the universal 'client' parameter to billing app
+      const stripeRedirectGateway = `https://billing.furstops.com/collect?client=${savedDistributor.id}`;
       window.location.href = stripeRedirectGateway;
       
     } catch (err: any) {
