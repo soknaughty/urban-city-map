@@ -806,23 +806,18 @@ function EditDistributorForm({
     setSaving(true);
     setErr(null);
     try {
-      const body: Record<string, unknown> = {};
-      if (form.name !== initial.name) {
-        body.name = form.name;
-        if (slug !== distributor.slug) body.slug = slug;
-      }
-      if (form.address !== initial.address) body.address_string = form.address;
-      if (form.website_url !== initial.website_url) body.website_url = form.website_url;
-      if (form.logo_url !== initial.logo_url) body.logo_url = form.logo_url;
-      if (form.brand_color !== initial.brand_color) body.brand_color = form.brand_color;
-      if (form.is_active !== initial.is_active) body.is_active = form.is_active;
-
-      if (Object.keys(body).length === 0) {
-        onSaved();
-        return;
-      }
-      const r = await authFetch(`/distributors/${distributor.id}`, {
-        method: "PATCH",
+      const body: any = {
+        title: form.title,
+        body: form.body || undefined,
+        sponsor_name: form.sponsor_name || undefined,
+        sponsor_logo_url: form.sponsor_logo_url || undefined,
+        start_date: form.start_date || undefined,
+        end_date: form.end_date || undefined,
+        scope: form.scope,
+        is_active: form.is_active,
+      };
+      const r = await authFetch(`/alerts/`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
@@ -831,4 +826,95 @@ function EditDistributorForm({
     } catch (e: any) {
       setErr(e.message || String(e));
     } finally {
-      setSaving
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal title="Add Alert" onClose={onClose}>
+      <form onSubmit={submit} className="space-y-3">
+        <Field label="Title">
+          <input
+            className={inputClass}
+            value={form.title}
+            onChange={(e) => setForm({ ...form, title: e.target.value })}
+            required
+          />
+        </Field>
+        <Field label="Body">
+          <textarea
+            className={inputClass}
+            rows={3}
+            value={form.body}
+            onChange={(e) => setForm({ ...form, body: e.target.value })}
+          />
+        </Field>
+        <Field label="Sponsor Name">
+          <input
+            className={inputClass}
+            value={form.sponsor_name}
+            onChange={(e) => setForm({ ...form, sponsor_name: e.target.value })}
+          />
+        </Field>
+        <Field label="Sponsor Logo URL">
+          <input
+            className={inputClass}
+            type="url"
+            value={form.sponsor_logo_url}
+            onChange={(e) => setForm({ ...form, sponsor_logo_url: e.target.value })}
+          />
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Start Date">
+            <input
+              className={inputClass}
+              type="date"
+              value={form.start_date}
+              onChange={(e) => setForm({ ...form, start_date: e.target.value })}
+            />
+          </Field>
+          <Field label="End Date">
+            <input
+              className={inputClass}
+              type="date"
+              value={form.end_date}
+              onChange={(e) => setForm({ ...form, end_date: e.target.value })}
+            />
+          </Field>
+        </div>
+        <Field label="Scope">
+          <select
+            className={inputClass}
+            value={form.scope}
+            onChange={(e) => setForm({ ...form, scope: e.target.value })}
+          >
+            <option value="global">global</option>
+            <option value="distributor">distributor</option>
+          </select>
+        </Field>
+        <label className="flex items-center gap-2 text-sm text-gray-700">
+          <input
+            type="checkbox"
+            checked={form.is_active}
+            onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
+          />
+          <span>Active</span>
+        </label>
+        {err && <p className="text-sm text-red-600">{err}</p>}
+        <div className="flex justify-end gap-2 pt-2">
+          <button type="button" onClick={onClose} className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 bg-white hover:bg-gray-50">
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={saving}
+            className="rounded-md px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            style={{ backgroundColor: "#1B4332" }}
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
