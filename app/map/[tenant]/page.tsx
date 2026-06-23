@@ -16,7 +16,7 @@ interface Pin {
   lat: number;
   phone?: string;
   website?: string;
-  tier?: "gold" | "silver";
+  tier?: string;
   logo_url?: string;
   address?: string;
 }
@@ -224,7 +224,7 @@ export default function TenantMapPortal({ params }: PageProps) {
                 lat: coords[1],
                 phone: props?.phone || undefined,
                 website: props?.website_url || undefined,
-                tier: props?.tier === "gold" ? "gold" : "silver",
+                tier: props?.tier || "silver",
                 logo_url: props?.logo_url || props?.logo || undefined,
                 address: props?.address || undefined,
               } as Pin;
@@ -289,7 +289,7 @@ export default function TenantMapPortal({ params }: PageProps) {
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
 
-    // NEW: Inject a dedicated storefront pin for the Distributor at the map center coordinates
+    // Inject dedicated storefront pin for the Distributor at the center
     if (center && !isRoot) {
       const el = document.createElement("button");
       el.type = "button";
@@ -318,7 +318,7 @@ export default function TenantMapPortal({ params }: PageProps) {
       markersRef.current.push(distMarker);
     }
 
-    // Render out all active advertisers assigned to this map network segment
+    // RESTORED: Original visual style rules for pins based on Account Tier
     visible.forEach((p) => {
       const meta = catMeta(p.cat);
       const isGold = p.tier === "gold";
@@ -328,15 +328,18 @@ export default function TenantMapPortal({ params }: PageProps) {
       const shadow = isGold
         ? "0 10px 24px -4px rgba(252,211,77,0.65),0 0 0 " + ringWidth + "px " + ring
         : "0 4px 10px -3px rgba(0,0,0,0.35),0 0 0 " + ringWidth + "px " + ring;
+
       const el = document.createElement("button");
       el.type = "button";
       el.setAttribute("aria-label", p.name);
       el.style.cssText = `display:flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:9999px;background:${meta.color};color:#fff;box-shadow:${shadow};cursor:pointer;font-size:${isGold ? 22 : 14}px;font-weight:800;border:none;transform:translateY(-${size / 3}px);${isGold ? "z-index:2;" : ""}`;
       el.textContent = meta.emoji;
+      
       el.addEventListener("click", (e) => {
         e.stopPropagation();
         setSelected(p);
       });
+      
       const marker = new mapboxgl.Marker({ element: el })
         .setLngLat([p.lng, p.lat])
         .addTo(map);
@@ -494,6 +497,7 @@ export default function TenantMapPortal({ params }: PageProps) {
             <div className="mx-auto mt-3 h-1.5 w-12 rounded-full bg-slate-300" />
             <div className="px-6 pb-8 pt-4">
               <div className="flex items-start gap-3">
+                {/* ENFORCED: Custom Brand Logo rendering is now fully restricted strictly to the Gold Tier */}
                 {selected.tier === "gold" && selected.logo_url ? (
                   <img src={selected.logo_url} alt={`${selected.name} logo`} className="h-14 w-14 shrink-0 rounded-2xl object-cover shadow-md ring-2" style={{ borderColor: "#FCD34D", boxShadow: "0 6px 16px -4px rgba(252,211,77,0.6)" }} />
                 ) : (
@@ -506,12 +510,15 @@ export default function TenantMapPortal({ params }: PageProps) {
                 </div>
                 <button onClick={() => setSelected(null)} className="rounded-full p-1.5 text-slate-500 hover:bg-slate-100" aria-label="Close"><X className="h-5 w-5" /></button>
               </div>
+              
+              {/* ENFORCED: Neighborhood Community Tips card is now fully restricted strictly to Gold Tier accounts */}
               {selected.tier === "gold" && selected.tip && (
                 <div className="mt-5 rounded-2xl border-2 p-4" style={{ borderColor: FOREST + "1F", backgroundColor: "#F0FDF4" }}>
                   <p className="text-[10.5px] font-extrabold uppercase tracking-[0.14em]" style={{ color: FOREST }}>Community Insider Tip</p>
                   <p className="mt-2 text-[14px] leading-relaxed text-slate-800">{selected.tip}</p>
                 </div>
               )}
+              
               <button onClick={openDirections} className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-[15px] font-bold text-white shadow-lg transition-all active:scale-[0.98]" style={{ backgroundColor: brandColor, boxShadow: "0 12px 28px -10px rgba(27,67,50,0.55)" }}>
                 <Navigation className="h-4 w-4" /> Directions
               </button>
