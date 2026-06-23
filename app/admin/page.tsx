@@ -787,6 +787,7 @@ function DashboardSection() {
 function DistributorsSection() {
   const { data, loading, error, refetch } = useFetch<any>("/distributors/");
   const distributors = asArray<Distributor>(data);
+  const [showForm, setShowForm] = useState(false); // RESTORED EXACTLY AS IN image_35c31e.png
   const [editing, setEditing] = useState<Distributor | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -802,8 +803,16 @@ function DistributorsSection() {
 
   return (
     <div className="space-y-4">
+      {/* RESTORED: Header block exactly as shown verbatim in image_35c31e.png */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-gray-500">{distributors.length} total</p>
+        <button
+          onClick={() => setShowForm(true)}
+          className="rounded-md px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
+          style={{ backgroundColor: "#1B4332" }}
+        >
+          + Add Distributor
+        </button>
       </div>
 
       {error && <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
@@ -876,6 +885,17 @@ function DistributorsSection() {
         </table>
       </div>
 
+      {/* RESTORED: Modal hook trigger block */}
+      {showForm && (
+        <DistributorForm
+          onClose={() => setShowForm(false)}
+          onSaved={() => {
+            setShowForm(false);
+            refetch();
+          }}
+        />
+      )}
+
       {editing && (
         <EditDistributorForm distributor={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); refetch(); }} />
       )}
@@ -899,6 +919,7 @@ function AdvertisersSection() {
   });
   
   const distributors = asArray<Distributor>(distQ.data);
+  const [showForm, setShowForm] = useState(false); // RESTORED EXACTLY AS IN image_35bf03.png
   const [editing, setEditing] = useState<Advertiser | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -926,8 +947,16 @@ function AdvertisersSection() {
 
   return (
     <div className="space-y-4">
+      {/* RESTORED: Header block exactly as shown verbatim in image_35bf03.png */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-gray-500">{advertisers.length} total</p>
+        <button
+          onClick={() => setShowForm(true)}
+          className="rounded-md px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
+          style={{ backgroundColor: "#1B4332" }}
+        >
+          + Add Advertiser
+        </button>
       </div>
 
       {error && <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
@@ -1006,6 +1035,18 @@ function AdvertisersSection() {
           </tbody>
         </table>
       </div>
+
+      {/* RESTORED: Modal hook trigger block */}
+      {showForm && (
+        <AdvertiserForm
+          distributors={distributors}
+          onClose={() => setShowForm(false)}
+          onSaved={() => {
+            setShowForm(false);
+            refetch();
+          }}
+        />
+      )}
 
       {editing && (
         <AdvertiserForm distributors={distributors} advertiser={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); refetch(); }} />
