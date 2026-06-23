@@ -288,6 +288,37 @@ export default function TenantMapPortal({ params }: PageProps) {
     if (!map) return;
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
+
+    // NEW: Inject a dedicated storefront pin for the Distributor at the map center coordinates
+    if (center && !isRoot) {
+      const el = document.createElement("button");
+      el.type = "button";
+      el.setAttribute("aria-label", distributorName);
+      const shadow = "0 10px 25px -3px rgba(0,0,0,0.3), 0 0 0 4px #fff";
+      el.style.cssText = `display:flex;align-items:center;justify-content:center;width:46px;height:46px;border-radius:9999px;background:${brandColor};color:#fff;box-shadow:${shadow};cursor:pointer;font-size:20px;border:none;z-index:50;transform:translateY(-15px);`;
+      el.textContent = "🏪";
+      
+      el.addEventListener("click", (e) => {
+        e.stopPropagation();
+        setSelected({
+          id: "distributor-hq",
+          cat: "patio",
+          name: distributorName,
+          distance: "Host Storefront Base",
+          tip: "Welcome to our partner headquarters! Drop in to pick up supplies, check local bulletin logs, or ask about network benefits.",
+          lng: center[0],
+          lat: center[1],
+          tier: "gold"
+        });
+      });
+
+      const distMarker = new mapboxgl.Marker({ element: el })
+        .setLngLat(center)
+        .addTo(map);
+      markersRef.current.push(distMarker);
+    }
+
+    // Render out all active advertisers assigned to this map network segment
     visible.forEach((p) => {
       const meta = catMeta(p.cat);
       const isGold = p.tier === "gold";
@@ -311,7 +342,7 @@ export default function TenantMapPortal({ params }: PageProps) {
         .addTo(map);
       markersRef.current.push(marker);
     });
-  }, [visible]);
+  }, [visible, center, isRoot, distributorName, brandColor]);
 
   const openDirections = () => {
     if (!selected) return;
