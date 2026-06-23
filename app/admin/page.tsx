@@ -370,14 +370,12 @@ function OnboardAdSection() {
   });
 
   const [loading, setLoading] = useState(false);
-  const [successPayload, setSuccessPayload] = useState<{ id: string; name: string; stripeUrl: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleOnboardSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    setSuccessPayload(null);
 
     try {
       const advertiserPayload = {
@@ -412,27 +410,12 @@ function OnboardAdSection() {
         if (!assignRes.ok) console.warn("Optional network link attachment failed.");
       }
 
-      const generatedStripeLink = `https://billing.furstops.com/collect?client=${newId}&tier=${form.tier}&ref=${form.distributor_id || "direct"}`;
-
-      setSuccessPayload({
-        id: newId || "Success",
-        name: form.business_name,
-        stripeUrl: generatedStripeLink,
-      });
-
-      setForm({
-        business_name: "",
-        category: "dining",
-        address: "",
-        phone: "",
-        website_url: "",
-        insider_tip: "",
-        distributor_id: "",
-        tier: "silver",
-      });
+      // RESTORED: Direct instant forward execution to Stripe Checkout Portal
+      const stripeRedirectGateway = savedAdvertiser?.checkout_url || savedAdvertiser?.stripe_url || `https://billing.furstops.com/collect?client=${newId}&tier=${form.tier}&ref=${form.distributor_id || "direct"}`;
+      window.location.href = stripeRedirectGateway;
+      
     } catch (err: any) {
       setError(err.message || "An unexpected processing fault occurred.");
-    } finally {
       setLoading(false);
     }
   };
@@ -443,24 +426,11 @@ function OnboardAdSection() {
         <UserPlus className="h-5 w-5 text-[#1B4332] shrink-0 mt-0.5" />
         <div>
           <p className="font-bold text-slate-900">Direct Advertiser Core Placement Workspace</p>
-          <p className="mt-1 text-slate-600">Populate campaign configuration targets directly below. Saved entities instantly drop dynamic pin configurations into host map layers.</p>
+          <p className="mt-1 text-slate-600">Populate campaign configurations below. Upon clicking deploy, the window will forward straight to the secure Stripe portal to process authorization billing.</p>
         </div>
       </div>
 
       {error && <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">{error}</div>}
-
-      {successPayload && (
-        <div className="p-5 bg-emerald-50 border border-emerald-200 rounded-xl space-y-3 animate-in fade-in">
-          <div className="flex items-center gap-2 text-emerald-800 font-bold">
-            <ClipboardCheck className="h-5 w-5" /> Onboarding Record Composed Successfully!
-          </div>
-          <p className="text-sm text-emerald-700">Client **{successPayload.name}** is registered securely. Share the custom production ledger deployment link directly to request processing authorization settlement:</p>
-          <div className="flex gap-2">
-            <input readOnly value={successPayload.stripeUrl} className="flex-1 p-2 bg-white border border-emerald-200 rounded-lg text-xs font-mono text-slate-800 focus:outline-none" />
-            <button onClick={() => { navigator.clipboard.writeText(successPayload.stripeUrl); }} className="px-3 py-1.5 bg-[#1B4332] text-white text-xs font-bold rounded-lg shadow hover:opacity-90">Copy Link</button>
-          </div>
-        </div>
-      )}
 
       <form onSubmit={handleOnboardSubmit} className="border border-gray-200 bg-white rounded-xl p-6 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -507,7 +477,7 @@ function OnboardAdSection() {
         </Field>
 
         <button type="submit" disabled={loading} className="w-full py-3 text-white font-bold rounded-lg transition-all hover:opacity-90 disabled:opacity-50 shadow-md" style={{ backgroundColor: "#1B4332" }}>
-          {loading ? "Composing Onboarding Package..." : "Deploy Advertiser Account Structure"}
+          {loading ? "Forwarding to Stripe Payment Desk..." : "Deploy Advertiser Account Structure"}
         </button>
       </form>
     </div>
@@ -525,7 +495,6 @@ function OnboardDisSection() {
   });
 
   const [loading, setLoading] = useState(false);
-  const [successPayload, setSuccessPayload] = useState<{ slug: string; name: string; url: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const computedSlug = slugify(form.name);
 
@@ -533,7 +502,6 @@ function OnboardDisSection() {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    setSuccessPayload(null);
 
     try {
       const distributorPayload = {
@@ -552,25 +520,14 @@ function OnboardDisSection() {
       });
 
       if (!res.ok) throw new Error(`Distributor save processing failed with code: ${res.status}`);
-
-      const productionGateway = `https://${computedSlug}.furstops.com`;
-
-      setSuccessPayload({
-        slug: computedSlug,
-        name: form.name,
-        url: productionGateway,
-      });
-
-      setForm({
-        name: "",
-        address: "",
-        website_url: "",
-        logo_url: "",
-        brand_color: "#1B4332",
-      });
+      const savedDistributor = await res.json();
+      
+      // RESTORED: Direct instant forward execution to Stripe Checkout Portal matching image_428c62.png button parameters
+      const stripeRedirectGateway = savedDistributor?.checkout_url || savedDistributor?.stripe_url || `https://billing.furstops.com/checkout?distributor=${savedDistributor?.id || computedSlug}`;
+      window.location.href = stripeRedirectGateway;
+      
     } catch (err: any) {
       setError(err.message || "A verification fault occurred.");
-    } finally {
       setLoading(false);
     }
   };
@@ -581,23 +538,11 @@ function OnboardDisSection() {
         <Building2 className="h-5 w-5 text-[#1B4332] shrink-0 mt-0.5" />
         <div>
           <p className="font-bold text-slate-900">Partner Host Distributor Onboarding Center</p>
-          <p className="mt-1 text-slate-600">Register prime retail network anchors to allocate unique frontend routing links instantly.</p>
+          <p className="mt-1 text-slate-600">Register prime retail anchors. Clicking authorization instantly forwards the page to Stripe billing pages to enable your dynamic subdomains.</p>
         </div>
       </div>
 
       {error && <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">{error}</div>}
-
-      {successPayload && (
-        <div className="p-5 bg-blue-50 border border-blue-200 rounded-xl space-y-2 animate-in fade-in">
-          <div className="flex items-center gap-2 text-blue-800 font-bold">
-            <Sparkles className="h-5 w-5" /> Distributor Environment Compiled Live!
-          </div>
-          <p className="text-sm text-blue-700">Map shell workspace **{successPayload.name}** configured cleanly. The private portal endpoint is online:</p>
-          <a href={successPayload.url} target="_blank" rel="noopener noreferrer" className="inline-block text-xs font-mono text-blue-600 underline font-bold bg-white px-3 py-1.5 border border-blue-200 rounded-lg hover:bg-blue-100">
-            {successPayload.url}
-          </a>
-        </div>
-      )}
 
       <form onSubmit={handleDisOnboard} className="border border-gray-200 bg-white rounded-xl p-6 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -629,8 +574,9 @@ function OnboardDisSection() {
           <input className={inputClass} type="url" value={form.logo_url} onChange={e => setForm({...form, logo_url: e.target.value})} placeholder="https://assets.domain/logo.png" />
         </Field>
 
+        {/* RESTORED: Submit button exactly as shown in image_428c62.png */}
         <button type="submit" disabled={loading} className="w-full py-3 text-white font-bold rounded-lg transition-all hover:opacity-90 disabled:opacity-50 shadow-md" style={{ backgroundColor: "#1B4332" }}>
-          {loading ? "Configuring Subdomain System Layers..." : "Authorize and Allocate Map Subdomain Space"}
+          {loading ? "Connecting to Payment Gateway..." : "Authorize and Allocate Map Subdomain Space"}
         </button>
       </form>
     </div>
@@ -668,7 +614,6 @@ function AlertRow({ a }: { a: Alert }) {
   );
 }
 
-// Status Badges and Render Modifiers
 function Badge({ active }: { active: boolean }) {
   return (
     <span
@@ -1087,7 +1032,6 @@ function AdvertisersSection() {
                     )}
                   </td>
                   <td className="px-4 py-3 text-gray-600">
-                    {/* FIXED: Formatted text output layout strictly to read 'Unassigned' per your instruction */}
                     {advDists.length > 0 ? advDists.map((d) => d.name).join(", ") : <span className="text-gray-400 italic">Unassigned</span>}
                   </td>
                   <td className="px-4 py-3 font-bold text-gray-700">
@@ -1291,7 +1235,6 @@ function AdvertiserForm({
           body: JSON.stringify(body),
         });
         
-        // FIXED: Removed the accidental 'Clyde' identifier artifact from this error constructor
         if (!r.ok) throw new Error(`Save failed: ${r.status}`);
         
         try {
