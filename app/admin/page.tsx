@@ -787,7 +787,7 @@ function DashboardSection() {
 function DistributorsSection() {
   const { data, loading, error, refetch } = useFetch<any>("/distributors/");
   const distributors = asArray<Distributor>(data);
-  const [showForm, setShowForm] = useState(false); // RESTORED EXACTLY AS IN image_35c31e.png
+  const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Distributor | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -803,7 +803,6 @@ function DistributorsSection() {
 
   return (
     <div className="space-y-4">
-      {/* RESTORED: Header block exactly as shown verbatim in image_35c31e.png */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-gray-500">{distributors.length} total</p>
         <button
@@ -885,7 +884,6 @@ function DistributorsSection() {
         </table>
       </div>
 
-      {/* RESTORED: Modal hook trigger block */}
       {showForm && (
         <DistributorForm
           onClose={() => setShowForm(false)}
@@ -900,6 +898,78 @@ function DistributorsSection() {
         <EditDistributorForm distributor={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); refetch(); }} />
       )}
     </div>
+  );
+}
+
+function DistributorForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const [form, setForm] = useState({
+    name: "",
+    address: "",
+    website_url: "",
+    logo_url: "",
+    brand_color: "#1B4332",
+  });
+  const slug = slugify(form.name);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setErr(null);
+    try {
+      const body: Record<string, unknown> = {
+        name: form.name,
+        slug,
+        address_string: form.address,
+        brand_color: form.brand_color,
+      };
+      if (form.website_url) body.website_url = form.website_url;
+      if (form.logo_url) body.logo_url = form.logo_url;
+      const r = await authFetch(`/distributors/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) throw new Error(`Save failed: ${r.status}`);
+      onSaved();
+    } catch (e: any) {
+      setErr(e.message || String(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal title="Add Distributor" onClose={onClose}>
+      <form onSubmit={submit} className="space-y-3">
+        <Field label="Name">
+          <input className={inputClass} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+        </Field>
+        <Field label="Slug">
+          <input className={inputClass + " bg-gray-50 text-gray-500"} value={slug} readOnly tabIndex={-1} />
+        </Field>
+        <Field label="Address">
+          <input className={inputClass} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} required />
+        </Field>
+        <Field label="Website URL">
+          <input className={inputClass} type="url" value={form.website_url} onChange={(e) => setForm({ ...form, website_url: e.target.value })} />
+        </Field>
+        <Field label="Logo URL">
+          <input className={inputClass} type="url" value={form.logo_url} onChange={(e) => setForm({ ...form, logo_url: e.target.value })} placeholder="https://…" />
+        </Field>
+        <Field label="Brand Color">
+          <input className={inputClass + " h-10 p-1"} type="color" value={form.brand_color} onChange={(e) => setForm({ ...form, brand_color: e.target.value })} />
+        </Field>
+        {err && <p className="text-sm text-red-600">{err}</p>}
+        <div className="flex justify-end gap-2 pt-2">
+          <button type="button" onClick={onClose} className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 bg-white hover:bg-gray-50">Cancel</button>
+          <button type="submit" disabled={saving} className="rounded-md px-4 py-2 text-sm font-semibold text-white disabled:opacity-50" style={{ backgroundColor: "#1B4332" }}>
+            {saving ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
@@ -919,7 +989,7 @@ function AdvertisersSection() {
   });
   
   const distributors = asArray<Distributor>(distQ.data);
-  const [showForm, setShowForm] = useState(false); // RESTORED EXACTLY AS IN image_35bf03.png
+  const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Advertiser | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -947,7 +1017,6 @@ function AdvertisersSection() {
 
   return (
     <div className="space-y-4">
-      {/* RESTORED: Header block exactly as shown verbatim in image_35bf03.png */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-gray-500">{advertisers.length} total</p>
         <button
@@ -1036,7 +1105,6 @@ function AdvertisersSection() {
         </table>
       </div>
 
-      {/* RESTORED: Modal hook trigger block */}
       {showForm && (
         <AdvertiserForm
           distributors={distributors}
