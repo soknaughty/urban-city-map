@@ -138,6 +138,14 @@ type Alert = {
   is_active?: boolean;
 };
 
+type StatsResponse = {
+  total_distributors: number;
+  active_distributors: number;
+  total_advertisers: number;
+  total_subscribers: number;
+  recent_subscribers: Array<{ email: string; distributor_id?: string; created_at?: string }>;
+};
+
 const ADVERTISER_CATEGORIES: { value: string; label: string }[] = [
   { value: "dining", label: "Cafe & Patio" },
   { value: "parks", label: "Parks & Fields" },
@@ -1495,7 +1503,6 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
   );
 }
 
-// Fixed line spacing layout typography definition settings
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block">
