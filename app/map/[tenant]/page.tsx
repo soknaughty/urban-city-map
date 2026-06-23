@@ -12,6 +12,7 @@ interface Pin {
   name: string;
   distance: string;
   tip: string;
+  tip_image_url?: string;
   lng: number;
   lat: number;
   phone?: string;
@@ -220,6 +221,7 @@ export default function TenantMapPortal({ params }: PageProps) {
                 name: props?.business_name || "Unnamed",
                 distance: "Tap for directions",
                 tip: props?.insider_tip || "",
+                tip_image_url: props?.tip_image_url || props?.promo_image_url || undefined,
                 lng: coords[0],
                 lat: coords[1],
                 phone: props?.phone || undefined,
@@ -250,7 +252,7 @@ export default function TenantMapPortal({ params }: PageProps) {
     
     const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
     if (!token) {
-      console.warn("Mapbox engine requires an access token environment configuration.");
+      console.warn("Mapbox token environment variable missing.");
       return;
     }
     
@@ -289,7 +291,6 @@ export default function TenantMapPortal({ params }: PageProps) {
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
 
-    // Inject dedicated storefront pin for the Distributor at the center
     if (center && !isRoot) {
       const el = document.createElement("button");
       el.type = "button";
@@ -318,7 +319,6 @@ export default function TenantMapPortal({ params }: PageProps) {
       markersRef.current.push(distMarker);
     }
 
-    // RESTORED: Original visual style rules for pins based on Account Tier
     visible.forEach((p) => {
       const meta = catMeta(p.cat);
       const isGold = p.tier === "gold";
@@ -497,7 +497,6 @@ export default function TenantMapPortal({ params }: PageProps) {
             <div className="mx-auto mt-3 h-1.5 w-12 rounded-full bg-slate-300" />
             <div className="px-6 pb-8 pt-4">
               <div className="flex items-start gap-3">
-                {/* ENFORCED: Custom Brand Logo rendering is now fully restricted strictly to the Gold Tier */}
                 {selected.tier === "gold" && selected.logo_url ? (
                   <img src={selected.logo_url} alt={`${selected.name} logo`} className="h-14 w-14 shrink-0 rounded-2xl object-cover shadow-md ring-2" style={{ borderColor: "#FCD34D", boxShadow: "0 6px 16px -4px rgba(252,211,77,0.6)" }} />
                 ) : (
@@ -511,11 +510,17 @@ export default function TenantMapPortal({ params }: PageProps) {
                 <button onClick={() => setSelected(null)} className="rounded-full p-1.5 text-slate-500 hover:bg-slate-100" aria-label="Close"><X className="h-5 w-5" /></button>
               </div>
               
-              {/* ENFORCED: Neighborhood Community Tips card is now fully restricted strictly to Gold Tier accounts */}
-              {selected.tier === "gold" && selected.tip && (
+              {/* RESTORED & UPGRADED: Heading text removed per instruction. Gold Tier now renders text tip AND optional media block seamlessly */}
+              {selected.tier === "gold" && (selected.tip || selected.tip_image_url) && (
                 <div className="mt-5 rounded-2xl border-2 p-4" style={{ borderColor: FOREST + "1F", backgroundColor: "#F0FDF4" }}>
-                  <p className="text-[10.5px] font-extrabold uppercase tracking-[0.14em]" style={{ color: FOREST }}>Community Insider Tip</p>
-                  <p className="mt-2 text-[14px] leading-relaxed text-slate-800">{selected.tip}</p>
+                  {selected.tip && <p className="text-[14px] leading-relaxed text-slate-800">{selected.tip}</p>}
+                  {selected.tip_image_url && (
+                    <img 
+                      src={selected.tip_image_url} 
+                      alt="Premium promo feature" 
+                      className={`${selected.tip ? "mt-3" : ""} w-full h-44 object-cover rounded-xl shadow-sm border border-slate-100`} 
+                    />
+                  )}
                 </div>
               )}
               
