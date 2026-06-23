@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Bone } from "lucide-react";
+import { Bone, UserPlus, Building2, ClipboardCheck, Sparkles } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const TOKEN_KEY = "urbandog_admin_token";
@@ -23,6 +23,69 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 function authFetch(path: string, init: RequestInit = {}) {
   const headers = { ...authHeaders(), ...(init.headers as Record<string, string> | undefined) };
   return fetch(`${API_BASE}${path}`, { ...init, headers });
+}
+
+async function apiGet<T>(path: string): Promise<T> {
+  const r = await authFetch(path);
+  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+  return r.json();
+}
+
+function useFetch<T>(path: string | null, deps: unknown[] = []) {
+  const [data, setData] = useState<T | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    if (!path) return;
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    apiGet<T>(path)
+      .then((d) => {
+        if (!cancelled) setData(d);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(String(e.message || e));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [path, tick, ...deps]);
+
+  const refetch = async () => {
+    if (!path) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const fresh = await apiGet<T>(path);
+      setData(null);
+      setData(fresh);
+    } catch (e: any) {
+      setError(String(e?.message || e));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { data, loading, error, refetch };
+}
+
+function asArray<T>(v: any): T[] {
+  let arr: any[] = [];
+  if (Array.isArray(v)) arr = v;
+  else if (v && Array.isArray(v.items)) arr = v.items;
+  else if (v && Array.isArray(v.results)) arr = v.results;
+  else if (v && Array.isArray(v.data)) arr = v.data;
+  return arr.map((it) =>
+    it && typeof it === "object" && "is_active" in it && !("active" in it)
+      ? { ...it, active: (it as any).is_active }
+      : it,
+  ) as T[];
 }
 
 type Distributor = {
@@ -60,7 +123,7 @@ type Subscriber = {
   created_at?: string;
 };
 
-type Section = "dashboard" | "distributors" | "advertisers" | "subscribers" | "alerts";
+type Section = "dashboard" | "distributors" | "advertisers" | "subscribers" | "alerts" | "onboard-ad" | "onboard-dis";
 
 type Alert = {
   id: string;
@@ -74,6 +137,15 @@ type Alert = {
   active?: boolean;
   is_active?: boolean;
 };
+
+const ADVERTISER_CATEGORIES: { value: string; label: string }[] = [
+  { value: "dining", label: "Cafe & Patio" },
+  { value: "parks", label: "Parks & Fields" },
+  { value: "emergency_vet", label: "Emergency Vet (24/7)" },
+  { value: "veterinarian", label: "Veterinarian" },
+  { value: "groomer", label: "Groomers & Sitters" },
+  { value: "daycare", label: "Doggie Daycare" },
+];
 
 export default function AdminApp() {
   const [authed, setAuthed] = useState(false);
@@ -200,6 +272,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     { key: "advertisers", label: "Advertisers", icon: "📍" },
     { key: "subscribers", label: "Subscribers", icon: "👥" },
     { key: "alerts", label: "Alerts", icon: "🔔" },
+    { key: "onboard-ad", label: "Onboard - Ad", icon: "📝" },
+    { key: "onboard-dis", label: "Onboard - Dis", icon: "📋" },
   ];
 
   return (
@@ -242,7 +316,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
       {mobileOpen && <div className="fixed inset-0 z-30 bg-black/40 md:hidden" onClick={() => setMobileOpen(false)} />}
 
-      {/* Main */}
+      {/* Main Content Area */}
       <main className="flex-1 min-w-0">
         <header className="flex items-center justify-between border-b border-gray-200 px-4 py-3 md:px-8 md:py-5">
           <div className="flex items-center gap-3">
@@ -252,7 +326,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             >
               ☰
             </button>
-            <h1 className="text-xl font-semibold capitalize md:text-2xl">{section}</h1>
+            <h1 className="text-xl font-semibold md:text-2xl">
+              {section === "onboard-ad" ? "Onboard - Ad" : section === "onboard-dis" ? "Onboard - Dis" : section}
+            </h1>
           </div>
         </header>
         <div className="p-4 md:p-8">
@@ -261,75 +337,299 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           {section === "advertisers" && <AdvertisersSection />}
           {section === "subscribers" && <SubscribersSection />}
           {section === "alerts" && <AlertsSection />}
+          {section === "onboard-ad" && <OnboardAdSection />}
+          {section === "onboard-dis" && <OnboardDisSection />}
         </div>
       </main>
     </div>
   );
 }
 
-async function apiGet<T>(path: string): Promise<T> {
-  const r = await authFetch(path);
-  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
-  return r.json();
-}
+// Dedicated Onboarding Pane for Advertisers
+function OnboardAdSection() {
+  const { data: distData } = useFetch<any>("/distributors/");
+  const distributors = asArray<Distributor>(distData);
 
-function useFetch<T>(path: string | null, deps: unknown[] = []) {
-  const [data, setData] = useState<T | null>(null);
+  const [form, setForm] = useState({
+    business_name: "",
+    category: "dining",
+    address: "",
+    phone: "",
+    website_url: "",
+    insider_tip: "",
+    distributor_id: "",
+    tier: "silver",
+  });
+
   const [loading, setLoading] = useState(false);
+  const [successPayload, setSuccessPayload] = useState<{ id: string; name: string; stripeUrl: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [tick, setTick] = useState(0);
 
-  useEffect(() => {
-    if (!path) return;
-    let cancelled = false;
+  const handleOnboardSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setLoading(true);
     setError(null);
-    apiGet<T>(path)
-      .then((d) => {
-        if (!cancelled) setData(d);
-      })
-      .catch((e) => {
-        if (!cancelled) setError(String(e.message || e));
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [path, tick, ...deps]);
+    setSuccessPayload(null);
 
-  const refetch = async () => {
-    if (!path) return;
-    setLoading(true);
-    setError(null);
     try {
-      const fresh = await apiGet<T>(path);
-      setData(null);
-      setData(fresh);
-    } catch (e: any) {
-      setError(String(e?.message || e));
+      const advertiserPayload = {
+        business_name: form.business_name,
+        category: form.category,
+        address_string: form.address,
+        phone: form.phone || undefined,
+        website_url: form.website_url || undefined,
+        insider_tip: form.insider_tip || undefined,
+        tier: form.tier,
+      };
+
+      const res = await authFetch("/advertisers/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(advertiserPayload),
+      });
+
+      if (!res.ok) throw new Error(`Onboarding execution failed with status: ${res.status}`);
+      const savedAdvertiser = await res.json();
+      const newId = savedAdvertiser?.id;
+
+      if (newId && form.distributor_id) {
+        const assignRes = await authFetch("/maps/assignments", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            distributor_id: form.distributor_id,
+            advertiser_id: newId,
+          }),
+        });
+        if (!assignRes.ok) console.warn("Optional network link attachment failed.");
+      }
+
+      const generatedStripeLink = `https://billing.furstops.com/collect?client=${newId}&tier=${form.tier}&ref=${form.distributor_id || "direct"}`;
+
+      setSuccessPayload({
+        id: newId || "Success",
+        name: form.business_name,
+        stripeUrl: generatedStripeLink,
+      });
+
+      setForm({
+        business_name: "",
+        category: "dining",
+        address: "",
+        phone: "",
+        website_url: "",
+        insider_tip: "",
+        distributor_id: "",
+        tier: "silver",
+      });
+    } catch (err: any) {
+      setError(err.message || "An unexpected processing fault occurred.");
     } finally {
       setLoading(false);
     }
   };
 
-  return { data, loading, error, refetch };
+  return (
+    <div className="max-w-2xl space-y-6">
+      <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex gap-3 items-start text-sm text-slate-700">
+        <UserPlus className="h-5 w-5 text-[#1B4332] shrink-0 mt-0.5" />
+        <div>
+          <p className="font-bold text-slate-900">Direct Advertiser Core Placement Workspace</p>
+          <p className="mt-1 text-slate-600">Populate campaign configuration targets directly below. Saved entities instantly drop dynamic pin configurations into host map layers.</p>
+        </div>
+      </div>
+
+      {error && <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">{error}</div>}
+
+      {successPayload && (
+        <div className="p-5 bg-emerald-50 border border-emerald-200 rounded-xl space-y-3 animate-in fade-in">
+          <div className="flex items-center gap-2 text-emerald-800 font-bold">
+            <ClipboardCheck className="h-5 w-5" /> Onboarding Record Composed Successfully!
+          </div>
+          <p className="text-sm text-emerald-700">Client **{successPayload.name}** is registered securely. Share the custom production ledger deployment link directly to request processing authorization settlement:</p>
+          <div className="flex gap-2">
+            <input readOnly value={successPayload.stripeUrl} className="flex-1 p-2 bg-white border border-emerald-200 rounded-lg text-xs font-mono text-slate-800 focus:outline-none" />
+            <button onClick={() => { navigator.clipboard.writeText(successPayload.stripeUrl); }} className="px-3 py-1.5 bg-[#1B4332] text-white text-xs font-bold rounded-lg shadow hover:opacity-90">Copy Link</button>
+          </div>
+        </div>
+      )}
+
+      <form onSubmit={handleOnboardSubmit} className="border border-gray-200 bg-white rounded-xl p-6 space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Field label="Business Name">
+            <input required className={inputClass} value={form.business_name} onChange={e => setForm({...form, business_name: e.target.value})} placeholder="e.g., Central Park Coffee" />
+          </Field>
+          <Field label="Target Category (Dropdown Menu)">
+            <select className={inputClass} value={form.category} onChange={e => setForm({...form, category: e.target.value})}>
+              {ADVERTISER_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+            </select>
+          </Field>
+        </div>
+
+        <Field label="Physical Address Location">
+          <input required className={inputClass} value={form.address} onChange={e => setForm({...form, address: e.target.value})} placeholder="Street address, City, State/Province, Postal Code" />
+        </Field>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Field label="Campaign Premium Tier (Dropdown Menu)">
+            <select className={inputClass} value={form.tier} onChange={e => setForm({...form, tier: e.target.value})}>
+              <option value="silver">Silver Tier Placement</option>
+              <option value="gold">Gold Tier Placement</option>
+            </select>
+          </Field>
+          <Field label="Assigned Map Host Distributor (Dropdown Menu)">
+            <select className={inputClass} value={form.distributor_id} onChange={e => setForm({...form, distributor_id: e.target.value})}>
+              <option value="">— Unassigned / Direct Global Root —</option>
+              {distributors.map(d => <option key={d.id} value={d.id}>{d.name} ({d.slug})</option>)}
+            </select>
+          </Field>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Field label="Contact Phone (Optional)">
+            <input className={inputClass} value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} placeholder="(555) 000-0000" />
+          </Field>
+          <Field label="Website URL link (Optional)">
+            <input className={inputClass} type="url" value={form.website_url} onChange={e => setForm({...form, website_url: e.target.value})} placeholder="https://example.com" />
+          </Field>
+        </div>
+
+        <Field label="Community Insider Recommendation Tip Context (Rich Pin Callout)">
+          <input className={inputClass} value={form.insider_tip} onChange={e => setForm({...form, insider_tip: e.target.value})} placeholder="Secret patio entrance, treats behind counter, water bowl locations..." />
+        </Field>
+
+        <button type="submit" disabled={loading} className="w-full py-3 text-white font-bold rounded-lg transition-all hover:opacity-90 disabled:opacity-50 shadow-md" style={{ backgroundColor: "#1B4332" }}>
+          {loading ? "Composing Onboarding Package..." : "Deploy Advertiser Account Structure"}
+        </button>
+      </form>
+    </div>
+  );
 }
 
-function asArray<T>(v: any): T[] {
-  let arr: any[] = [];
-  if (Array.isArray(v)) arr = v;
-  else if (v && Array.isArray(v.items)) arr = v.items;
-  else if (v && Array.isArray(v.results)) arr = v.results;
-  else if (v && Array.isArray(v.data)) arr = v.data;
-  return arr.map((it) =>
-    it && typeof it === "object" && "is_active" in it && !("active" in it)
-      ? { ...it, active: (it as any).is_active }
-      : it,
-  ) as T[];
+// Dedicated Onboarding Pane for Distributors
+function OnboardDisSection() {
+  const [form, setForm] = useState({
+    name: "",
+    address: "",
+    website_url: "",
+    logo_url: "",
+    brand_color: "#1B4332",
+  });
+
+  const [loading, setLoading] = useState(false);
+  const [successPayload, setSuccessPayload] = useState<{ slug: string; name: string; url: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const computedSlug = slugify(form.name);
+
+  const handleDisOnboard = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    setSuccessPayload(null);
+
+    try {
+      const distributorPayload = {
+        name: form.name,
+        slug: computedSlug,
+        address_string: form.address,
+        brand_color: form.brand_color,
+        website_url: form.website_url || undefined,
+        logo_url: form.logo_url || undefined,
+      };
+
+      const res = await authFetch("/distributors/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(distributorPayload),
+      });
+
+      if (!res.ok) throw new Error(`Distributor save processing failed with code: ${res.status}`);
+
+      const productionGateway = `https://${computedSlug}.furstops.com`;
+
+      setSuccessPayload({
+        slug: computedSlug,
+        name: form.name,
+        url: productionGateway,
+      });
+
+      setForm({
+        name: "",
+        address: "",
+        website_url: "",
+        logo_url: "",
+        brand_color: "#1B4332",
+      });
+    } catch (err: any) {
+      setError(err.message || "A verification fault occurred.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="max-w-2xl space-y-6">
+      <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex gap-3 items-start text-sm text-slate-700">
+        <Building2 className="h-5 w-5 text-[#1B4332] shrink-0 mt-0.5" />
+        <div>
+          <p className="font-bold text-slate-900">Partner Host Distributor Onboarding Center</p>
+          <p className="mt-1 text-slate-600">Register prime retail network anchors to allocate unique frontend routing links instantly.</p>
+        </div>
+      </div>
+
+      {error && <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">{error}</div>}
+
+      {successPayload && (
+        <div className="p-5 bg-blue-50 border border-blue-200 rounded-xl space-y-2 animate-in fade-in">
+          <div className="flex items-center gap-2 text-blue-800 font-bold">
+            <Sparkles className="h-5 w-5" /> Distributor Environment Compiled Live!
+          </div>
+          <p className="text-sm text-blue-700">Map shell workspace **{successPayload.name}** configured cleanly. The private portal endpoint is online:</p>
+          <a href={successPayload.url} target="_blank" rel="noopener noreferrer" className="inline-block text-xs font-mono text-blue-600 underline font-bold bg-white px-3 py-1.5 border border-blue-200 rounded-lg hover:bg-blue-100">
+            {successPayload.url}
+          </a>
+        </div>
+      )}
+
+      <form onSubmit={handleDisOnboard} className="border border-gray-200 bg-white rounded-xl p-6 space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Field label="Distributor Brand Hub Name">
+            <input required className={inputClass} value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="e.g., Paws & Claws Boutique" />
+          </Field>
+          <Field label="Generated System Subdomain Routing String Slug">
+            <input readOnly className={`${inputClass} bg-slate-50 text-slate-500 font-mono`} value={computedSlug || "automatic-slug"} tabIndex={-1} />
+          </Field>
+        </div>
+
+        <Field label="Primary Flagship Storefront Address">
+          <input required className={inputClass} value={form.address} onChange={e => setForm({...form, address: e.target.value})} placeholder="Full physical base address coordinates string" />
+        </Field>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Field label="Corporate Website Link (Optional)">
+            <input className={inputClass} type="url" value={form.website_url} onChange={e => setForm({...form, website_url: e.target.value})} placeholder="https://partnerbrand.com" />
+          </Field>
+          <Field label="Custom Branded Theme Accent Hex Color Picker">
+            <div className="flex gap-2">
+              <input type="color" className="w-12 h-10 p-1 border border-gray-300 rounded-md bg-white cursor-pointer" value={form.brand_color} onChange={e => setForm({...form, brand_color: e.target.value})} />
+              <input className={inputClass} value={form.brand_color} onChange={e => setForm({...form, brand_color: e.target.value})} placeholder="#1B4332" maxLength={7} />
+            </div>
+          </Field>
+        </div>
+
+        <Field label="Brand Logo Image Vector Asset URL Link (Optional)">
+          <input className={inputClass} type="url" value={form.logo_url} onChange={e => setForm({...form, logo_url: e.target.value})} placeholder="https://assets.domain/logo.png" />
+        </Field>
+
+        <button type="submit" disabled={loading} className="w-full py-3 text-white font-bold rounded-lg transition-all hover:opacity-90 disabled:opacity-50 shadow-md" style={{ backgroundColor: "#1B4332" }}>
+          {loading ? "Configuring Subdomain System Layers..." : "Authorize and Allocate Map Subdomain Space"}
+        </button>
+      </form>
+    </div>
+  );
 }
 
+// Helper Cards and Row Modifiers definitions
 function StatCard({ label, value, loading }: { label: string; value: number | string; loading?: boolean }) {
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-5">
@@ -338,14 +638,6 @@ function StatCard({ label, value, loading }: { label: string; value: number | st
     </div>
   );
 }
-
-type StatsResponse = {
-  total_distributors: number;
-  active_distributors: number;
-  total_advertisers: number;
-  total_subscribers: number;
-  recent_subscribers: Array<{ email: string; distributor_id?: string; created_at?: string }>;
-};
 
 function AlertRow({ a }: { a: Alert }) {
   const hasSponsor = !!(a.sponsor_name && a.sponsor_name.trim());
@@ -366,6 +658,32 @@ function AlertRow({ a }: { a: Alert }) {
       )}
     </li>
   );
+}
+
+function Badge({ active }: { active: boolean }) {
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+        active ? "bg-green-100 text-green-800" : "bg-red-100 text-red-700"
+      }`}
+    >
+      {active ? "Active" : "Inactive"}
+    </span>
+  );
+}
+
+function formatDateShort(d?: string) {
+  if (!d) return "—";
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return "—";
+  return dt.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function formatDate(d?: string) {
+  if (!d) return "—";
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return "—";
+  return dt.toLocaleString();
 }
 
 function DashboardSection() {
@@ -393,7 +711,7 @@ function DashboardSection() {
     <div className="space-y-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Total Distributors" value={data?.total_distributors ?? 0} loading={loading} />
-        <StatCard label="Active Distributors" value={data?.total_distributors ?? 0} loading={loading} />
+        <StatCard label="Active Distributors" value={data?.active_distributors ?? 0} loading={loading} />
         <StatCard label="Total Advertisers" value={data?.total_advertisers ?? 0} loading={loading} />
         <StatCard label="Total Subscribers" value={data?.total_subscribers ?? 0} loading={loading} />
       </div>
@@ -458,36 +776,9 @@ function DashboardSection() {
   );
 }
 
-function formatDateShort(d?: string) {
-  if (!d) return "—";
-  const dt = new Date(d);
-  if (isNaN(dt.getTime())) return "—";
-  return dt.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-}
-
-function formatDate(d?: string) {
-  if (!d) return "—";
-  const dt = new Date(d);
-  if (isNaN(dt.getTime())) return "—";
-  return dt.toLocaleString();
-}
-
-function Badge({ active }: { active: boolean }) {
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-        active ? "bg-green-100 text-green-800" : "bg-red-100 text-red-700"
-      }`}
-    >
-      {active ? "Active" : "Inactive"}
-    </span>
-  );
-}
-
 function DistributorsSection() {
   const { data, loading, error, refetch } = useFetch<any>("/distributors/");
   const distributors = asArray<Distributor>(data);
-  const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Distributor | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -505,13 +796,6 @@ function DistributorsSection() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-gray-500">{distributors.length} total</p>
-        <button
-          onClick={() => setShowForm(true)}
-          className="rounded-md px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
-          style={{ backgroundColor: "#1B4332" }}
-        >
-          + Add Distributor
-        </button>
       </div>
 
       {error && <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
@@ -531,23 +815,18 @@ function DistributorsSection() {
           <tbody className="divide-y divide-gray-100">
             {loading && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-gray-500">
-                  Loading…
-                </td>
+                <td colSpan={6} className="px-4 py-6 text-center text-gray-500">Loading…</td>
               </tr>
             )}
             {!loading && distributors.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-gray-500">
-                  No distributors.
-                </td>
+                <td colSpan={6} className="px-4 py-6 text-center text-gray-500">No distributors matching query criteria found.</td>
               </tr>
             )}
             {distributors.map((d) => {
               const anyD = d as any;
               const status = String(anyD.health_status || "").toLowerCase();
-              const dotColor =
-                status === "green" ? "#16a34a" : status === "yellow" ? "#eab308" : status === "red" ? "#dc2626" : "#d1d5db";
+              const dotColor = status === "green" ? "#16a34a" : status === "yellow" ? "#eab308" : status === "red" ? "#dc2626" : "#d1d5db";
               const slug = anyD.slug;
               
               const mapHref = slug
@@ -564,11 +843,7 @@ function DistributorsSection() {
                   <span
                     className="inline-block h-3 w-3 rounded-full ring-1 ring-black/10"
                     style={{ backgroundColor: dotColor }}
-                    title={
-                      status
-                        ? `Status: ${status}\nAdvertisers: ${anyD.advertiser_count ?? 0}\nSubscribers: ${anyD.subscriber_count ?? 0}`
-                        : "No health data"
-                    }
+                    title={status ? `Status: ${status}\nAdvertisers: ${anyD.advertiser_count ?? 0}\nSubscribers: ${anyD.subscriber_count ?? 0}` : "No operational log entries recorded"}
                   />
                 </td>
                 <td className="px-4 py-3">
@@ -577,31 +852,12 @@ function DistributorsSection() {
                 <td className="px-4 py-3 text-gray-600">{formatDate(d.created_at)}</td>
                 <td className="px-4 py-3">
                   <div className="flex justify-end gap-2">
-                    <button
-                      onClick={() => setEditing(d)}
-                      className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-50"
-                      title="Edit"
-                    >
-                      ✏️ Edit
-                    </button>
-                    <button
-                      disabled={busyId === d.id}
-                      onClick={() => toggle(d)}
-                      className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      {d.active ? "Deactivate" : "Activate"}
-                    </button>
+                    <button onClick={() => setEditing(d)} className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-50">✏️ Edit</button>
+                    <button disabled={busyId === d.id} onClick={() => toggle(d)} className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-50 disabled:opacity-50">{d.active ? "Deactivate" : "Activate"}</button>
                     {mapHref ? (
-                      <a
-                        href={mapHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-50"
-                      >
-                        View Map
-                      </a>
+                      <a href={mapHref} target="_blank" rel="noopener noreferrer" className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-50">View Map</a>
                     ) : (
-                      <span className="text-xs text-gray-400 italic px-3 py-1">No map</span>
+                      <span className="text-xs text-gray-400 italic px-3 py-1">No map workspace space built</span>
                     )}
                   </div>
                 </td>
@@ -612,169 +868,141 @@ function DistributorsSection() {
         </table>
       </div>
 
-      {showForm && (
-        <DistributorForm
-          onClose={() => setShowForm(false)}
-          onSaved={() => {
-            setShowForm(false);
-            refetch();
-          }}
-        />
-      )}
-
       {editing && (
-        <EditDistributorForm
-          distributor={editing}
-          onClose={() => setEditing(null)}
-          onSaved={() => {
-            setEditing(null);
-            refetch();
-          }}
-        />
+        <EditDistributorForm distributor={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); refetch(); }} />
       )}
     </div>
   );
 }
 
-function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-lg rounded-lg bg-white shadow-xl text-black">
-        <div className="flex items-center justify-between border-b border-gray-200 px-5 py-3">
-          <h3 className="text-base font-semibold">{title}</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-900">
-            ✕
-          </button>
-        </div>
-        <div className="p-5">{children}</div>
-      </div>
-    </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-xs font-medium text-gray-700">{label}</span>
-      {children}
-    </label>
-  );
-}
-
-const inputClass =
-  "w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black bg-white outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900";
-
-function slugify(name: string) {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-");
-}
-
-function DistributorForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState({
-    name: "",
-    address: "",
-    website_url: "",
-    logo_url: "",
-    brand_color: "#1B4332",
+function AdvertisersSection() {
+  const { data, loading, error, refetch } = useFetch<any>("/advertisers/");
+  const distQ = useFetch<any>("/distributors/");
+  const rawAdvertisers = asArray<any>(data);
+  
+  const advertisers: Advertiser[] = rawAdvertisers.map((a: any) => {
+    const distributor_id = a.distributor_id ?? a.distributor?.id ?? (Array.isArray(a.distributor_ids) ? a.distributor_ids[0] : undefined) ?? (Array.isArray(a.distributors) ? (a.distributors[0]?.id ?? a.distributors[0]) : undefined);
+    return {
+      ...a,
+      address: a.address ?? a.address_string ?? "",
+      address_string: a.address_string ?? a.address ?? "",
+      distributor_id: distributor_id ? String(distributor_id) : undefined,
+    };
   });
-  const slug = slugify(form.name);
-  const [saving, setSaving] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  
+  const distributors = asArray<Distributor>(distQ.data);
+  const [editing, setEditing] = useState<Advertiser | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    setErr(null);
+  const distMap = new Map<string, Distributor>();
+  distributors.forEach((d) => distMap.set(String(d.id), d));
+
+  const getDistributorsFor = (a: Advertiser): Distributor[] => {
+    const ids: string[] = [];
+    const anyA = a as any;
+    if (Array.isArray(anyA.distributor_ids)) ids.push(...anyA.distributor_ids.map(String));
+    else if (Array.isArray(anyA.distributors)) ids.push(...anyA.distributors.map((x: any) => String(x.id ?? x)));
+    else if (a.distributor_id) ids.push(String(a.distributor_id));
+    return ids.map((id) => distMap.get(id)).filter(Boolean) as Distributor[];
+  };
+
+  const toggle = async (a: Advertiser) => {
+    setBusyId(a.id);
     try {
-      const body: Record<string, unknown> = {
-        name: form.name,
-        slug,
-        address_string: form.address,
-        brand_color: form.brand_color,
-      };
-      if (form.website_url) body.website_url = form.website_url;
-      if (form.logo_url) body.logo_url = form.logo_url;
-      const r = await authFetch(`/distributors/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!r.ok) throw new Error(`Save failed: ${r.status}`);
-      onSaved();
-    } catch (e: any) {
-      setErr(e.message || String(e));
+      await authFetch(`/advertisers/${a.id}/activate?is_active=${!a.active}`, { method: "PATCH" });
+      refetch();
     } finally {
-      setSaving(false);
+      setBusyId(null);
     }
   };
 
   return (
-    <Modal title="Add Distributor" onClose={onClose}>
-      <form onSubmit={submit} className="space-y-3">
-        <Field label="Name">
-          <input
-            className={inputClass}
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            required
-          />
-        </Field>
-        <Field label="Slug">
-          <input className={inputClass + " bg-gray-50 text-gray-500"} value={slug} readOnly tabIndex={-1} />
-        </Field>
-        <Field label="Address">
-          <input
-            className={inputClass}
-            value={form.address}
-            onChange={(e) => setForm({ ...form, address: e.target.value })}
-            required
-          />
-        </Field>
-        <Field label="Website URL">
-          <input
-            className={inputClass}
-            type="url"
-            value={form.website_url}
-            onChange={(e) => setForm({ ...form, website_url: e.target.value })}
-          />
-        </Field>
-        <Field label="Logo URL">
-          <input
-            className={inputClass}
-            type="url"
-            value={form.logo_url}
-            onChange={(e) => setForm({ ...form, logo_url: e.target.value })}
-            placeholder="https://…"
-          />
-        </Field>
-        <Field label="Brand Color">
-          <input
-            className={inputClass + " h-10 p-1"}
-            type="color"
-            value={form.brand_color}
-            onChange={(e) => setForm({ ...form, brand_color: e.target.value })}
-          />
-        </Field>
-        {err && <p className="text-sm text-red-600">{err}</p>}
-        <div className="flex justify-end gap-2 pt-2">
-          <button type="button" onClick={onClose} className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 bg-white hover:bg-gray-50">
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="rounded-md px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-            style={{ backgroundColor: "#1B4332" }}
-          >
-            {saving ? "Saving…" : "Save"}
-          </button>
-        </div>
-      </form>
-    </Modal>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-gray-500">{advertisers.length} total</p>
+      </div>
+
+      {error && <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
+
+      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+        <table className="min-w-full text-sm">
+          <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <tr>
+              <th className="px-4 py-3">Business Name</th>
+              <th className="px-4 py-3">Category</th>
+              <th className="px-4 py-3">Address</th>
+              <th className="px-4 py-3">Distributor</th>
+              <th className="px-4 py-3">Active</th>
+              <th className="px-4 py-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {loading && (
+              <tr>
+                <td colSpan={6} className="px-4 py-6 text-center text-gray-500">Loading…</td>
+              </tr>
+            )}
+            {!loading && advertisers.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-4 py-6 text-center text-gray-500">No active advertisers are assigned.</td>
+              </tr>
+            )}
+            {advertisers.map((a) => {
+              const advDists = getDistributorsFor(a);
+              const distributorSlug = (a as any).distributor_slug || advDists.find((d) => d.slug)?.slug || "";
+              
+              const mapHref = distributorSlug
+                ? typeof window !== "undefined" && window.location.hostname.includes("localhost")
+                  ? `http://${distributorSlug}.localhost:3000`
+                  : `https://${distributorSlug}.furstops.com`
+                : "";
+
+              return (
+                <tr key={a.id}>
+                  <td className="px-4 py-3 font-medium text-gray-900">{a.business_name}</td>
+                  <td className="px-4 py-3 text-gray-600">{a.category}</td>
+                  <td className="px-4 py-3 text-gray-600 max-w-[200px]">
+                    {a.address ? (
+                      <TooltipProvider delayDuration={150}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="block truncate cursor-help">{a.address}</span>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs break-words">{a.address}</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    ) : (
+                      <span className="text-gray-400 italic">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">
+                    {advDists.length > 0 ? advDists.map((d) => d.name).join(", ") : <span className="text-gray-400 italic">Unassigned Global Root Link</span>}
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge active={!!a.active} />
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex justify-end gap-2">
+                      <button disabled={busyId === a.id} onClick={() => toggle(a)} className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-50 disabled:opacity-50 text-gray-700 bg-white">{a.active ? "Deactivate" : "Activate"}</button>
+                      <button onClick={() => setEditing(a)} className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-50 text-gray-700 bg-white">Edit</button>
+                      {mapHref ? (
+                        <a href={mapHref} target="_blank" rel="noopener noreferrer" className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-50 text-gray-700 bg-white">View Map</a>
+                      ) : (
+                        <span className="text-xs text-gray-400 italic px-3 py-1">No map configuration detected</span>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {editing && (
+        <AdvertiserForm distributors={distributors} advertiser={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); refetch(); }} />
+      )}
+    </div>
   );
 }
 
@@ -835,277 +1063,39 @@ function EditDistributorForm({
   };
 
   return (
-    <Modal title="Edit Distributor" onClose={onClose}>
+    <Modal title="Edit Distributor Details" onClose={onClose}>
       <form onSubmit={submit} className="space-y-3">
         <Field label="Name">
-          <input
-            className={inputClass}
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            required
-          />
+          <input className={inputClass} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
         </Field>
         <Field label="Slug">
           <input className={inputClass + " bg-gray-50 text-gray-500"} value={slug} readOnly tabIndex={-1} />
         </Field>
         <Field label="Address">
-          <input
-            className={inputClass}
-            value={form.address}
-            onChange={(e) => setForm({ ...form, address: e.target.value })}
-            required
-          />
+          <input className={inputClass} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} required />
         </Field>
         <Field label="Website URL">
-          <input
-            className={inputClass}
-            type="url"
-            value={form.website_url}
-            onChange={(e) => setForm({ ...form, website_url: e.target.value })}
-          />
+          <input className={inputClass} type="url" value={form.website_url} onChange={(e) => setForm({ ...form, website_url: e.target.value })} />
         </Field>
         <Field label="Logo URL">
-          <input
-            className={inputClass}
-            type="url"
-            value={form.logo_url}
-            onChange={(e) => setForm({ ...form, logo_url: e.target.value })}
-            placeholder="https://…"
-          />
+          <input className={inputClass} type="url" value={form.logo_url} onChange={(e) => setForm({ ...form, logo_url: e.target.value })} placeholder="https://…" />
         </Field>
         <Field label="Brand Color">
-          <input
-            className={inputClass + " h-10 p-1"}
-            type="color"
-            value={form.brand_color}
-            onChange={(e) => setForm({ ...form, brand_color: e.target.value })}
-          />
+          <input className={inputClass + " h-10 p-1"} type="color" value={form.brand_color} onChange={(e) => setForm({ ...form, brand_color: e.target.value })} />
         </Field>
         <label className="flex items-center gap-2 text-sm text-gray-700">
-          <input
-            type="checkbox"
-            checked={form.is_active}
-            onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
-          />
-          Is Active
+          <input type="checkbox" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} />
+          Is Active Record
         </label>
         {err && <p className="text-sm text-red-600">{err}</p>}
         <div className="flex justify-end gap-2 pt-2">
-          <button type="button" onClick={onClose} className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 bg-white hover:bg-gray-50">
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="rounded-md px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-            style={{ backgroundColor: "#1B4332" }}
-          >
-            {saving ? "Saving…" : "Save"}
+          <button type="button" onClick={onClose} className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 bg-white hover:bg-gray-50">Cancel</button>
+          <button type="submit" disabled={saving} className="rounded-md px-4 py-2 text-sm font-semibold text-white disabled:opacity-50" style={{ backgroundColor: "#1B4332" }}>
+            {saving ? "Saving Changes…" : "Commit Structure Mod"}
           </button>
         </div>
       </form>
     </Modal>
-  );
-}
-
-const ADVERTISER_CATEGORIES: { value: string; label: string }[] = [
-  { value: "dining", label: "Cafe" },
-  { value: "parks", label: "Parks" },
-  { value: "emergency_vet", label: "Emergency Vet" },
-  { value: "veterinarian", label: "Veterinarian" },
-  { value: "groomer", label: "Groomer" },
-  { value: "daycare", label: "Daycare" },
-];
-
-function AdvertisersSection() {
-  const { data, loading, error, refetch } = useFetch<any>("/advertisers/");
-  const distQ = useFetch<any>("/distributors/");
-  const rawAdvertisers = asArray<any>(data);
-  
-  const advertisers: Advertiser[] = rawAdvertisers.map((a: any) => {
-    const distributor_id =
-      a.distributor_id ??
-      a.distributor?.id ??
-      (Array.isArray(a.distributor_ids) ? a.distributor_ids[0] : undefined) ??
-      (Array.isArray(a.distributors) ? (a.distributors[0]?.id ?? a.distributors[0]) : undefined);
-    return {
-      ...a,
-      address: a.address ?? a.address_string ?? "",
-      address_string: a.address_string ?? a.address ?? "",
-      distributor_id: distributor_id ? String(distributor_id) : undefined,
-    };
-  });
-  
-  const distributors = asArray<Distributor>(distQ.data);
-  const [showForm, setShowForm] = useState(false);
-  const [editing, setEditing] = useState<Advertiser | null>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
-
-  const distMap = new Map<string, Distributor>();
-  distributors.forEach((d) => distMap.set(String(d.id), d));
-
-  const getDistributorsFor = (a: Advertiser): Distributor[] => {
-    const ids: string[] = [];
-    const anyA = a as any;
-    if (Array.isArray(anyA.distributor_ids)) ids.push(...anyA.distributor_ids.map(String));
-    else if (Array.isArray(anyA.distributors))
-      ids.push(...anyA.distributors.map((x: any) => String(x.id ?? x)));
-    else if (a.distributor_id) ids.push(String(a.distributor_id));
-    return ids.map((id) => distMap.get(id)).filter(Boolean) as Distributor[];
-  };
-
-  const toggle = async (a: Advertiser) => {
-    setBusyId(a.id);
-    try {
-      await authFetch(`/advertisers/${a.id}/activate?is_active=${!a.active}`, { method: "PATCH" });
-      refetch();
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-500">{advertisers.length} total</p>
-        <button
-          onClick={() => setShowForm(true)}
-          className="rounded-md px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
-          style={{ backgroundColor: "#1B4332" }}
-        >
-          + Add Advertiser
-        </button>
-      </div>
-
-      {error && <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
-
-      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
-        <table className="min-w-full text-sm">
-          <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-            <tr>
-              <th className="px-4 py-3">Business Name</th>
-              <th className="px-4 py-3">Category</th>
-              <th className="px-4 py-3">Address</th>
-              <th className="px-4 py-3">Distributor</th>
-              <th className="px-4 py-3">Active</th>
-              <th className="px-4 py-3 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {loading && (
-              <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-gray-500">
-                  Loading…
-                </td>
-              </tr>
-            )}
-            {!loading && advertisers.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-gray-500">
-                  No advertisers.
-                </td>
-              </tr>
-            )}
-            {advertisers.map((a) => {
-              const advDists = getDistributorsFor(a);
-              const distributorSlug =
-                (a as any).distributor_slug || advDists.find((d) => d.slug)?.slug || "";
-              
-              const mapHref = distributorSlug
-                ? typeof window !== "undefined" && window.location.hostname.includes("localhost")
-                  ? `http://${distributorSlug}.localhost:3000`
-                  : `https://${distributorSlug}.furstops.com`
-                : "";
-
-              return (
-                <tr key={a.id}>
-                  <td className="px-4 py-3 font-medium text-gray-900">{a.business_name}</td>
-                  <td className="px-4 py-3 text-gray-600">{a.category}</td>
-                  <td className="px-4 py-3 text-gray-600 max-w-[200px]">
-                    {a.address ? (
-                      <TooltipProvider delayDuration={150}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="block truncate cursor-help">{a.address}</span>
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-xs break-words">
-                            {a.address}
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    ) : (
-                      <span className="text-gray-400 italic">—</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-gray-600">
-                    {advDists.length > 0 ? (
-                      advDists.map((d) => d.name).join(", ")
-                    ) : (
-                      <span className="text-gray-400 italic">Unassigned</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge active={!!a.active} />
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex justify-end gap-2">
-                      <button
-                        disabled={busyId === a.id}
-                        onClick={() => toggle(a)}
-                        className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-50 disabled:opacity-50 text-gray-700 bg-white"
-                      >
-                        {a.active ? "Deactivate" : "Activate"}
-                      </button>
-                      <button
-                        onClick={() => setEditing(a)}
-                        className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-50 text-gray-700 bg-white"
-                      >
-                        Edit
-                      </button>
-                      {mapHref ? (
-                        <a
-                          href={mapHref}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-50 text-gray-700 bg-white"
-                        >
-                          View Map
-                        </a>
-                      ) : (
-                        <span className="text-xs text-gray-400 italic px-3 py-1">No map</span>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      {showForm && (
-        <AdvertiserForm
-          distributors={distributors}
-          onClose={() => setShowForm(false)}
-          onSaved={() => {
-            setShowForm(false);
-            refetch();
-          }}
-        />
-      )}
-
-      {editing && (
-        <AdvertiserForm
-          distributors={distributors}
-          advertiser={editing}
-          onClose={() => setEditing(null)}
-          onSaved={() => {
-            setEditing(null);
-            refetch();
-          }}
-        />
-      )}
-    </div>
   );
 }
 
@@ -1205,93 +1195,47 @@ function AdvertiserForm({
   };
 
   return (
-    <Modal title={isEdit ? "Edit Advertiser" : "Add Advertiser"} onClose={onClose}>
+    <Modal title={isEdit ? "Edit Advertiser Settings" : "Deploy Advertiser Instance"} onClose={onClose}>
       <form onSubmit={submit} className="space-y-3">
         <Field label="Business Name">
-          <input
-            className={inputClass}
-            value={form.business_name}
-            onChange={(e) => setForm({ ...form, business_name: e.target.value })}
-            required
-          />
+          <input className={inputClass} value={form.business_name} onChange={(e) => setForm({ ...form, business_name: e.target.value })} required />
         </Field>
-        <Field label="Category">
-          <select
-            className={inputClass}
-            value={form.category}
-            onChange={(e) => setForm({ ...form, category: e.target.value })}
-          >
-            {ADVERTISER_CATEGORIES.map((c) => (
-              <option key={c.value} value={c.value}>
-                {c.label}
-              </option>
-            ))}
+        <Field label="Category Selector Menu">
+          <select className={inputClass} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} >
+            {ADVERTISER_CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
           </select>
         </Field>
         <Field label="Address">
-          <input
-            className={inputClass}
-            value={form.address}
-            onChange={(e) => setForm({ ...form, address: e.target.value })}
-            required
-          />
+          <input className={inputClass} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} required />
         </Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Phone">
-            <input
-              className={inputClass}
-              value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
-            />
+            <input className={inputClass} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           </Field>
           <Field label="Website URL">
-            <input
-              className={inputClass}
-              type="url"
-              value={form.website_url}
-              onChange={(e) => setForm({ ...form, website_url: e.target.value })}
-            />
+            <input className={inputClass} type="url" value={form.website_url} onChange={(e) => setForm({ ...form, website_url: e.target.value })} />
           </Field>
         </div>
-        <Field label="Distributor">
-          <select
-            className={inputClass}
-            value={form.distributor_id}
-            onChange={(e) => setForm({ ...form, distributor_id: e.target.value })}
-          >
-            <option value="">— None —</option>
-            {distributors.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
+        <Field label="Host Map Anchor Partner (Dynamic Dropdown)">
+          <select className={inputClass} value={form.distributor_id} onChange={(e) => setForm({ ...form, distributor_id: e.target.value })} >
+            <option value="">— Unassigned Root Layout —</option>
+            {distributors.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
         </Field>
         <Field label="Insider Tip">
-          <input
-            className={inputClass}
-            value={form.insider_tip}
-            onChange={(e) => setForm({ ...form, insider_tip: e.target.value })}
-          />
+          <input className={inputClass} value={form.insider_tip} onChange={(e) => setForm({ ...form, insider_tip: e.target.value })} />
         </Field>
-        <Field label="Tier">
+        <Field label="Tier Level Configuration">
           <select className={inputClass} value={form.tier} onChange={(e) => setForm({ ...form, tier: e.target.value })}>
-            <option value="silver">Silver</option>
-            <option value="gold">Gold</option>
+            <option value="silver">Silver Tier Profile</option>
+            <option value="gold">Gold Tier Profile</option>
           </select>
         </Field>
         {err && <p className="text-sm text-red-600">{err}</p>}
         <div className="flex justify-end gap-2 pt-2">
-          <button type="button" onClick={onClose} className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 bg-white hover:bg-gray-50">
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="rounded-md px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-            style={{ backgroundColor: "#1B4332" }}
-          >
-            {saving ? "Saving…" : "Save"}
+          <button type="button" onClick={onClose} className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 bg-white hover:bg-gray-50">Cancel</button>
+          <button type="submit" disabled={saving} className="rounded-md px-4 py-2 text-sm font-semibold text-white disabled:opacity-50" style={{ backgroundColor: "#1B4332" }}>
+            {saving ? "Saving Changes…" : "Commit Structure"}
           </button>
         </div>
       </form>
@@ -1331,14 +1275,7 @@ function SubscribersSection() {
         <p className="text-sm text-gray-700">
           <span className="font-semibold">{total}</span> total subscribers
         </p>
-        <button
-          onClick={exportCsv}
-          disabled={subs.length === 0}
-          className="rounded-md px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
-          style={{ backgroundColor: "#1B4332" }}
-        >
-          Export to CSV
-        </button>
+        <button onClick={exportCsv} disabled={subs.length === 0} className="rounded-md px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50" style={{ backgroundColor: "#1B4332" }}>Export to CSV Log</button>
       </div>
 
       {error && <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
@@ -1357,16 +1294,12 @@ function SubscribersSection() {
           <tbody className="divide-y divide-gray-100">
             {loading && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-gray-500">
-                  Loading…
-                </td>
+                <td colSpan={5} className="px-4 py-6 text-center text-gray-500">Loading…</td>
               </tr>
             )}
             {!loading && subs.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-gray-500">
-                  No subscribers.
-                </td>
+                <td colSpan={5} className="px-4 py-6 text-center text-gray-500">No subscriber data fields matching parameters.</td>
               </tr>
             )}
             {subs.map((s: any, i: number) => (
@@ -1404,14 +1337,8 @@ function AlertsSection() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-500">{alerts.length} total</p>
-        <button
-          onClick={() => setShowForm(true)}
-          className="rounded-md px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
-          style={{ backgroundColor: "#1B4332" }}
-        >
-          + Add Alert
-        </button>
+        <p className="text-sm text-gray-500">{alerts.length} total active broadcast streams</p>
+        <button onClick={() => setShowForm(true)} className="rounded-md px-4 py-2 text-sm font-semibold text-white hover:opacity-90" style={{ backgroundColor: "#1B4332" }}>+ Create Live Alert Block</button>
       </div>
 
       {error && <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
@@ -1432,16 +1359,12 @@ function AlertsSection() {
           <tbody className="divide-y divide-gray-100">
             {loading && (
               <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-gray-500">
-                  Loading…
-                </td>
+                <td colSpan={7} className="px-4 py-6 text-center text-gray-500">Loading operational calendar items…</td>
               </tr>
             )}
             {!loading && alerts.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-gray-500">
-                  No alerts.
-                </td>
+                <td colSpan={7} className="px-4 py-6 text-center text-gray-500">No alerts found.</td>
               </tr>
             )}
             {alerts.map((a) => (
@@ -1455,13 +1378,7 @@ function AlertsSection() {
                   <Badge active={!!a.active} />
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <button
-                    disabled={busyId === a.id}
-                    onClick={() => toggle(a)}
-                    className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-50 disabled:opacity-50 text-gray-700 bg-white"
-                  >
-                    {a.active ? "Deactivate" : "Activate"}
-                  </button>
+                  <button disabled={busyId === a.id} onClick={() => toggle(a)} className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-50 disabled:opacity-50 text-gray-700 bg-white">{a.active ? "Deactivate" : "Activate"}</button>
                 </td>
               </tr>
             ))}
@@ -1470,13 +1387,7 @@ function AlertsSection() {
       </div>
 
       {showForm && (
-        <AlertForm
-          onClose={() => setShowForm(false)}
-          onSaved={() => {
-            setShowForm(false);
-            refetch();
-          }}
-        />
+        <AlertForm onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); refetch(); }} />
       )}
     </div>
   );
@@ -1526,90 +1437,81 @@ function AlertForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => v
   };
 
   return (
-    <Modal title="Add Alert" onClose={onClose}>
+    <Modal title="Deploy Live Map Broadcast Banner Alert" onClose={onClose}>
       <form onSubmit={submit} className="space-y-3">
         <Field label="Title">
-          <input
-            className={inputClass}
-            value={form.title}
-            onChange={(e) => setForm({ ...form, title: e.target.value })}
-            required
-          />
+          <input className={inputClass} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
         </Field>
         <Field label="Body">
-          <textarea
-            className={inputClass}
-            rows={3}
-            value={form.body}
-            onChange={(e) => setForm({ ...form, body: e.target.value })}
-          />
+          <textarea className={inputClass} rows={3} value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} />
         </Field>
         <Field label="Sponsor Name">
-          <input
-            className={inputClass}
-            value={form.sponsor_name}
-            onChange={(e) => setForm({ ...form, sponsor_name: e.target.value })}
-          />
+          <input className={inputClass} value={form.sponsor_name} onChange={(e) => setForm({ ...form, sponsor_name: e.target.value })} />
         </Field>
         <Field label="Sponsor Logo URL">
-          <input
-            className={inputClass}
-            type="url"
-            value={form.sponsor_logo_url}
-            onChange={(e) => setForm({ ...form, sponsor_logo_url: e.target.value })}
-          />
+          <input className={inputClass} type="url" value={form.sponsor_logo_url} onChange={(e) => setForm({ ...form, sponsor_logo_url: e.target.value })} />
         </Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Start Date">
-            <input
-              className={inputClass}
-              type="date"
-              value={form.start_date}
-              onChange={(e) => setForm({ ...form, start_date: e.target.value })}
-            />
+            <input className={inputClass} type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} />
           </Field>
           <Field label="End Date">
-            <input
-              className={inputClass}
-              type="date"
-              value={form.end_date}
-              onChange={(e) => setForm({ ...form, end_date: e.target.value })}
-            />
+            <input className={inputClass} type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} />
           </Field>
         </div>
         <Field label="Scope">
-          <select
-            className={inputClass}
-            value={form.scope}
-            onChange={(e) => setForm({ ...form, scope: e.target.value })}
-          >
+          <select className={inputClass} value={form.scope} onChange={(e) => setForm({ ...form, scope: e.target.value })} >
             <option value="global">global</option>
             <option value="distributor">distributor</option>
           </select>
         </Field>
         <label className="flex items-center gap-2 text-sm text-gray-700">
-          <input
-            type="checkbox"
-            checked={form.is_active}
-            onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
-          />
-          <span>Active</span>
+          <input type="checkbox" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} />
+          <span>Active Map Banner</span>
         </label>
         {err && <p className="text-sm text-red-600">{err}</p>}
         <div className="flex justify-end gap-2 pt-2">
-          <button type="button" onClick={onClose} className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 bg-white hover:bg-gray-50">
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="rounded-md px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-            style={{ backgroundColor: "#1B4332" }}
-          >
-            {saving ? "Saving…" : "Save"}
+          <button type="button" onClick={onClose} className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 bg-white hover:bg-gray-50">Cancel</button>
+          <button type="submit" disabled={saving} className="rounded-md px-4 py-2 text-sm font-semibold text-white disabled:opacity-50" style={{ backgroundColor: "#1B4332" }}>
+            {saving ? "Saving…" : "Save Live"}
           </button>
         </div>
       </form>
     </Modal>
   );
+}
+
+function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-lg rounded-lg bg-white shadow-xl text-black">
+        <div className="flex items-center justify-between border-b border-gray-200 px-5 py-3">
+          <h3 className="text-base font-semibold">{title}</h3>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-900">✕</button>
+        </div>
+        <div className="p-5">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+// Fixed line spacing layout typography definition settings
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-xs font-semibold text-gray-600 uppercase tracking-wider">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+const inputClass = "w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black bg-white outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900 transition-colors";
+
+function slugify(name: string) {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
 }
