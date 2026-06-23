@@ -61,7 +61,7 @@ function useFetch<T>(path: string | null, deps: unknown[] = []) {
     if (!path) return;
     setLoading(true);
     setError(null);
-    try {
+      try {
       const fresh = await apiGet<T>(path);
       setData(null);
       setData(fresh);
@@ -873,7 +873,7 @@ function DistributorsSection() {
                     {mapHref ? (
                       <a href={mapHref} target="_blank" rel="noopener noreferrer" className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-50">View Map</a>
                     ) : (
-                      <span className="text-xs text-gray-400 italic px-3 py-1">No map workspace space built</span>
+                      <span className="text-xs text-gray-400 italic px-3 py-1">No Map</span>
                     )}
                   </div>
                 </td>
@@ -1032,12 +1032,14 @@ function AdvertisersSection() {
 
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
         <table className="min-w-full text-sm">
+          {/* UPDATED: Added Tier Header Column */}
           <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
             <tr>
               <th className="px-4 py-3">Business Name</th>
               <th className="px-4 py-3">Category</th>
               <th className="px-4 py-3">Address</th>
               <th className="px-4 py-3">Distributor</th>
+              <th className="px-4 py-3">Tier</th>
               <th className="px-4 py-3">Active</th>
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
@@ -1045,12 +1047,12 @@ function AdvertisersSection() {
           <tbody className="divide-y divide-gray-100">
             {loading && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-gray-500">Loading…</td>
+                <td colSpan={7} className="px-4 py-6 text-center text-gray-500">Loading…</td>
               </tr>
             )}
             {!loading && advertisers.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-gray-500">No active advertisers are assigned.</td>
+                <td colSpan={7} className="px-4 py-6 text-center text-gray-500">No active advertisers are assigned.</td>
               </tr>
             )}
             {advertisers.map((a) => {
@@ -1062,6 +1064,10 @@ function AdvertisersSection() {
                   ? `http://${distributorSlug}.localhost:3000`
                   : `https://${distributorSlug}.furstops.com`
                 : "";
+
+              // Tier evaluation parser matching S, G, or dot criteria
+              const tierString = String(a.tier || "").toLowerCase().trim();
+              const tierMarker = tierString === "gold" ? "G" : tierString === "silver" ? "S" : "●";
 
               return (
                 <tr key={a.id}>
@@ -1084,6 +1090,10 @@ function AdvertisersSection() {
                   <td className="px-4 py-3 text-gray-600">
                     {advDists.length > 0 ? advDists.map((d) => d.name).join(", ") : <span className="text-gray-400 italic">Unassigned Global Root Link</span>}
                   </td>
+                  {/* UPDATED: Injected Tier indicator cell context */}
+                  <td className="px-4 py-3 font-bold text-gray-700">
+                    {tierMarker === "●" ? <span className="text-black text-xs">●</span> : tierMarker}
+                  </td>
                   <td className="px-4 py-3">
                     <Badge active={!!a.active} />
                   </td>
@@ -1094,7 +1104,8 @@ function AdvertisersSection() {
                       {mapHref ? (
                         <a href={mapHref} target="_blank" rel="noopener noreferrer" className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-50 text-gray-700 bg-white">View Map</a>
                       ) : (
-                        <span className="text-xs text-gray-400 italic px-3 py-1">No map configuration detected</span>
+                        /* UPDATED: Shorthand aligned value to match image_371c5e.png request layout verbatim */
+                        <span className="text-xs text-gray-400 italic px-3 py-1">No Map</span>
                       )}
                     </div>
                   </td>
@@ -1277,7 +1288,7 @@ function AdvertiserForm({
       let savedId: string | undefined = advertiser?.id;
       if (!skipSave) {
         const r = await authFetch(isEdit ? `/advertisers/${advertiser!.id}` : `/advertisers/`, {
-          method: isEdit ? "PATCH" : "POST",
+          method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
