@@ -575,6 +575,7 @@ function OnboardDisSection() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successUrl, setSuccessUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const computedSlug = slugify(form.name);
 
   const handleDisOnboard = async (e: React.FormEvent) => {
@@ -582,6 +583,7 @@ function OnboardDisSection() {
     setLoading(true);
     setError(null);
     setSuccessUrl(null);
+    setCopied(false);
 
     try {
       const distributorPayload = {
@@ -614,10 +616,10 @@ function OnboardDisSection() {
       // Open Stripe in a new tab instead of overriding the current window
       window.open(url.toString(), '_blank');
       
-      // Display the generated URL on the dashboard
+      // Display the generated URL with the admin bypass appended for the store owner
       const mapDomain = typeof window !== "undefined" && window.location.hostname.includes("localhost")
-        ? `http://${computedSlug}.localhost:3000`
-        : `https://${computedSlug}.furstops.com`;
+        ? `http://${computedSlug}.localhost:3000?admin=1`
+        : `https://${computedSlug}.furstops.com?admin=1`;
       
       setSuccessUrl(mapDomain);
       setLoading(false);
@@ -626,6 +628,13 @@ function OnboardDisSection() {
       setError(err.message || "A verification fault occurred.");
       setLoading(false);
     }
+  };
+
+  const copyToClipboard = () => {
+    if (!successUrl) return;
+    navigator.clipboard.writeText(successUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
@@ -647,14 +656,31 @@ function OnboardDisSection() {
           <p className="text-sm text-green-800">
             The secure Stripe checkout has opened in a new tab. Once the payment clears, their custom map layout will be activated at:
           </p>
-          <a href={successUrl} target="_blank" rel="noopener noreferrer" className="font-mono font-medium text-[#1B4332] hover:underline bg-white px-3 py-2 border border-green-200 rounded-md inline-block w-fit mt-1">
-            {successUrl}
-          </a>
+          
+          <div className="flex items-center gap-2 mt-1">
+            <a href={successUrl} target="_blank" rel="noopener noreferrer" className="font-mono text-sm font-medium text-[#1B4332] hover:underline bg-white px-3 py-2 border border-green-200 rounded-md truncate max-w-[85%]">
+              {successUrl}
+            </a>
+            <button 
+              type="button" 
+              onClick={copyToClipboard}
+              className="flex h-9 w-9 items-center justify-center rounded-md border border-green-200 bg-white text-green-700 hover:bg-green-100 transition-colors"
+              title="Copy to clipboard"
+            >
+              {copied ? (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              ) : (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+              )}
+            </button>
+          </div>
+
           <button 
             type="button" 
             onClick={() => {
               setForm({ name: "", address: "", website_url: "", logo_url: "", brand_color: "#1B4332", currency: "usd" });
               setSuccessUrl(null);
+              setCopied(false);
             }} 
             className="mt-3 w-fit rounded-md bg-white border border-green-300 px-4 py-2 text-sm font-semibold hover:bg-green-100 transition-colors"
           >

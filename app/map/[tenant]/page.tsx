@@ -267,7 +267,7 @@ export default function TenantMapPortal({ params }: PageProps) {
       container: mapContainer.current,
       style: "mapbox://styles/mapbox/streets-v12",
       center,
-      zoom: 14,
+      zoom: 15.5,
     });
     mapRef.current = map;
     map.on("load", () => map.resize());
@@ -487,7 +487,7 @@ export default function TenantMapPortal({ params }: PageProps) {
               </button>
             )}
             {center && (
-              <button type="button" onClick={() => { if (mapRef.current && center) { mapRef.current.flyTo({ center, zoom: 14, essential: true }); } }} aria-label="Recenter map" className="flex h-11 w-11 items-center justify-center rounded-full bg-white shadow-[0_6px_18px_-4px_rgba(15,23,42,0.35)] ring-1 ring-slate-200 transition-all active:scale-95 hover:scale-105" style={{ color: brandColor }}>
+              <button type="button" onClick={() => { if (mapRef.current && center) { mapRef.current.flyTo({ center, zoom: 15.5, essential: true }); } }} aria-label="Recenter map" className="flex h-11 w-11 items-center justify-center rounded-full bg-white shadow-[0_6px_18px_-4px_rgba(15,23,42,0.35)] ring-1 ring-slate-200 transition-all active:scale-95 hover:scale-105" style={{ color: brandColor }}>
                 <Crosshair className="h-5 w-5" strokeWidth={2.5} />
               </button>
             )}
