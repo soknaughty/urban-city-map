@@ -378,6 +378,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   );
 }
 
+// Dedicated Onboarding Pane for Advertisers
 function OnboardAdSection() {
   const { data: distData } = useFetch<any>("/distributors/");
   const distributors = asArray<Distributor>(distData);
@@ -396,11 +397,13 @@ function OnboardAdSection() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<boolean>(false);
 
   const handleOnboardSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setSuccess(false);
 
     try {
       const advertiserPayload = {
@@ -454,7 +457,11 @@ function OnboardAdSection() {
       const url = new URL(targetUrl);
       url.searchParams.set("client_reference_id", newId);
       
-      window.location.href = url.toString();
+      // Open Stripe in a new tab instead of overriding the current window
+      window.open(url.toString(), '_blank');
+      
+      setSuccess(true);
+      setLoading(false);
       
     } catch (err: any) {
       setError(err.message || "An unexpected processing fault occurred.");
@@ -468,11 +475,31 @@ function OnboardAdSection() {
         <UserPlus className="h-5 w-5 text-[#1B4332] shrink-0 mt-0.5" />
         <div>
           <p className="font-bold text-slate-900">Direct Advertiser Core Placement Workspace</p>
-          <p className="mt-1 text-slate-600">Populate campaign configurations below. Upon clicking deploy, the window will forward straight to the secure Stripe portal to process authorization billing.</p>
         </div>
       </div>
 
       {error && <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">{error}</div>}
+
+      {success && (
+        <div className="p-5 bg-green-50 border border-green-200 text-green-900 rounded-xl flex flex-col gap-2 shadow-sm">
+          <p className="font-bold text-base flex items-center gap-2">
+            ✅ Advertiser Initialized
+          </p>
+          <p className="text-sm text-green-800">
+            The secure Stripe checkout has opened in a new tab. Once the payment clears, their map pin will automatically activate on the network.
+          </p>
+          <button 
+            type="button" 
+            onClick={() => {
+              setForm({ business_name: "", category: "dining", address: "", phone: "", website_url: "", insider_tip: "", distributor_id: "", tier: "silver", currency: "usd" });
+              setSuccess(false);
+            }} 
+            className="mt-3 w-fit rounded-md bg-white border border-green-300 px-4 py-2 text-sm font-semibold hover:bg-green-100 transition-colors"
+          >
+            Clear Form for Next Advertiser
+          </button>
+        </div>
+      )}
 
       <form onSubmit={handleOnboardSubmit} className="border border-gray-200 bg-white rounded-xl p-6 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -534,6 +561,7 @@ function OnboardAdSection() {
   );
 }
 
+// Dedicated Onboarding Pane for Distributors
 function OnboardDisSection() {
   const [form, setForm] = useState({
     name: "",
@@ -546,12 +574,14 @@ function OnboardDisSection() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successUrl, setSuccessUrl] = useState<string | null>(null);
   const computedSlug = slugify(form.name);
 
   const handleDisOnboard = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setSuccessUrl(null);
 
     try {
       const distributorPayload = {
@@ -581,7 +611,16 @@ function OnboardDisSection() {
       const url = new URL(targetUrl);
       url.searchParams.set("client_reference_id", savedDistributor.id);
       
-      window.location.href = url.toString();
+      // Open Stripe in a new tab instead of overriding the current window
+      window.open(url.toString(), '_blank');
+      
+      // Display the generated URL on the dashboard
+      const mapDomain = typeof window !== "undefined" && window.location.hostname.includes("localhost")
+        ? `http://${computedSlug}.localhost:3000`
+        : `https://${computedSlug}.furstops.com`;
+      
+      setSuccessUrl(mapDomain);
+      setLoading(false);
       
     } catch (err: any) {
       setError(err.message || "A verification fault occurred.");
@@ -595,11 +634,34 @@ function OnboardDisSection() {
         <Building2 className="h-5 w-5 text-[#1B4332] shrink-0 mt-0.5" />
         <div>
           <p className="font-bold text-slate-900">Partner Host Distributor Onboarding Center</p>
-          <p className="mt-1 text-slate-600">Register prime retail network anchors. Clicking authorization instantly forwards the page to Stripe billing pages to enable your dynamic subdomains.</p>
         </div>
       </div>
 
       {error && <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">{error}</div>}
+
+      {successUrl && (
+        <div className="p-5 bg-green-50 border border-green-200 text-green-900 rounded-xl flex flex-col gap-2 shadow-sm">
+          <p className="font-bold text-base flex items-center gap-2">
+            ✅ Distributor Initialized
+          </p>
+          <p className="text-sm text-green-800">
+            The secure Stripe checkout has opened in a new tab. Once the payment clears, their custom map layout will be activated at:
+          </p>
+          <a href={successUrl} target="_blank" rel="noopener noreferrer" className="font-mono font-medium text-[#1B4332] hover:underline bg-white px-3 py-2 border border-green-200 rounded-md inline-block w-fit mt-1">
+            {successUrl}
+          </a>
+          <button 
+            type="button" 
+            onClick={() => {
+              setForm({ name: "", address: "", website_url: "", logo_url: "", brand_color: "#1B4332", currency: "usd" });
+              setSuccessUrl(null);
+            }} 
+            className="mt-3 w-fit rounded-md bg-white border border-green-300 px-4 py-2 text-sm font-semibold hover:bg-green-100 transition-colors"
+          >
+            Clear Form for Next Partner
+          </button>
+        </div>
+      )}
 
       <form onSubmit={handleDisOnboard} className="border border-gray-200 bg-white rounded-xl p-6 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
