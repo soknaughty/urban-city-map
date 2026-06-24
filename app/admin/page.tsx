@@ -8,6 +8,36 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 const TOKEN_KEY = "urbandog_admin_token";
 const API_BASE = "https://urbandog-production.up.railway.app/api/v1";
 
+// ── STRIPE PAYMENT LINK CONFIGURATION ───────────────────────────────────────
+// Sourced directly from your Lovable frontend configuration to guarantee 
+// seamless cross-platform payment routing using static Checkout links.
+const STRIPE_LINKS: Record<string, Record<string, string>> = {
+  "ad_cfs_z": {
+    usd: "https://buy.stripe.com/test_14A8wO4Mn1RlcTtaND5ZC03",
+    cad: "https://buy.stripe.com/test_00w4gy1AbanR9Hh2h75ZC02"
+  },
+  "ad_cfs_x": {
+    usd: "https://buy.stripe.com/test_fZucN4baL3Zt7z908Z5ZC07",
+    cad: "https://buy.stripe.com/test_5kQ4gyemX0Nh9Hh4pf5ZC08"
+  },
+  "ad_grm_z": {
+    usd: "https://buy.stripe.com/test_4gM7sKcePdA306H2h75ZC09",
+    cad: "https://buy.stripe.com/test_7sYeVc7YzfIb06H8Fv5ZC01"
+  },
+  "ad_grm_x": {
+    usd: "https://buy.stripe.com/test_7sY14m92DbrVg5Fg7X5ZC0a",
+    cad: "https://buy.stripe.com/test_00weVc7Yz8fJ1aLaND5ZC0b"
+  },
+  "bnr_wk": {
+    usd: "https://buy.stripe.com/test_5kQ28q4MnfIb2eP08Z5ZC06",
+    cad: "https://buy.stripe.com/test_fZu8wO1AbanRcTtcVL5ZC04"
+  },
+  "furstops_license": {
+    usd: "https://buy.stripe.com/test_9B67sK5Qr0Nhf1Bf3T5ZC0c",
+    cad: "https://buy.stripe.com/test_4gM8wOa6HdA3f1B6xn5ZC00"
+  }
+};
+
 function getToken(): string | null {
   if (typeof window === "undefined") return null;
   return localStorage.getItem(TOKEN_KEY);
@@ -367,6 +397,7 @@ function OnboardAdSection() {
     insider_tip: "",
     distributor_id: "",
     tier: "silver",
+    currency: "usd",
   });
 
   const [loading, setLoading] = useState(false);
@@ -410,9 +441,29 @@ function OnboardAdSection() {
         if (!assignRes.ok) console.warn("Optional network link attachment failed.");
       }
 
-      // FIXED: Point to the confirmed universal micro-billing endpoint using the client key parameter
-      const stripeRedirectGateway = `https://billing.furstops.com/collect?client=${newId}&tier=${form.tier}&ref=${form.distributor_id || "direct"}`;
-      window.location.href = stripeRedirectGateway;
+      // MAP TO INTERNAL STRIPE LINK DICTIONARY (Aligning exactly with Lovable Frontend rules)
+      const isGold = form.tier === "gold";
+      const isGroomer = form.category === "groomer";
+      
+      // Determine base SKU string based on category and tier
+      let skuKey = "";
+      if (isGroomer) {
+        skuKey = isGold ? "ad_grm_x" : "ad_grm_z";
+      } else {
+        // Fallback catchall mapping for standard tiers
+        skuKey = isGold ? "ad_cfs_x" : "ad_cfs_z";
+      }
+      
+      const targetUrl = STRIPE_LINKS[skuKey]?.[form.currency];
+      
+      if (!targetUrl) {
+         throw new Error("No secure Stripe checkout link configuration exists for this combination.");
+      }
+      
+      const url = new URL(targetUrl);
+      url.searchParams.set("client_reference_id", newId);
+      
+      window.location.href = url.toString();
       
     } catch (err: any) {
       setError(err.message || "An unexpected processing fault occurred.");
@@ -472,9 +523,17 @@ function OnboardAdSection() {
           </Field>
         </div>
 
-        <Field label="Community Insider Recommendation Tip Context (Rich Pin Callout)">
-          <input className={inputClass} value={form.insider_tip} onChange={e => setForm({...form, insider_tip: e.target.value})} placeholder="Secret patio entrance, treats behind counter, water bowl locations..." />
-        </Field>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Field label="Community Insider Recommendation Tip Context">
+            <input className={inputClass} value={form.insider_tip} onChange={e => setForm({...form, insider_tip: e.target.value})} placeholder="Secret patio entrance, treats..." />
+          </Field>
+          <Field label="Target Stripe Currency Base">
+            <select className={inputClass} value={form.currency} onChange={e => setForm({...form, currency: e.target.value})}>
+              <option value="usd">USD (United States Dollar)</option>
+              <option value="cad">CAD (Canadian Dollar)</option>
+            </select>
+          </Field>
+        </div>
 
         <button type="submit" disabled={loading} className="w-full py-3 text-white font-bold rounded-lg transition-all hover:opacity-90 disabled:opacity-50 shadow-md" style={{ backgroundColor: "#1B4332" }}>
           {loading ? "Forwarding to Stripe Payment Desk..." : "Deploy Advertiser Account Structure"}
@@ -492,6 +551,7 @@ function OnboardDisSection() {
     website_url: "",
     logo_url: "",
     brand_color: "#1B4332",
+    currency: "usd",
   });
 
   const [loading, setLoading] = useState(false);
@@ -522,9 +582,17 @@ function OnboardDisSection() {
       if (!res.ok) throw new Error(`Distributor save processing failed with code: ${res.status}`);
       const savedDistributor = await res.json();
       
-      // FIXED: Updated the fallback key destination matching parameters to pass the universal 'client' parameter to billing app
-      const stripeRedirectGateway = `https://billing.furstops.com/collect?client=${savedDistributor.id}`;
-      window.location.href = stripeRedirectGateway;
+      // ALIGNMENT: Directly access static Stripe link via currency selection 
+      const targetUrl = STRIPE_LINKS["furstops_license"]?.[form.currency];
+      
+      if (!targetUrl) {
+         throw new Error("No secure checkout routing configured for this currency.");
+      }
+      
+      const url = new URL(targetUrl);
+      url.searchParams.set("client_reference_id", savedDistributor.id);
+      
+      window.location.href = url.toString();
       
     } catch (err: any) {
       setError(err.message || "A verification fault occurred.");
@@ -570,9 +638,17 @@ function OnboardDisSection() {
           </Field>
         </div>
 
-        <Field label="Brand Logo Image Vector Asset URL Link (Optional)">
-          <input className={inputClass} type="url" value={form.logo_url} onChange={(e) => setForm({ ...form, logo_url: e.target.value })} placeholder="https://assets.domain/logo.png" />
-        </Field>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Field label="Brand Logo Image Vector Asset URL Link (Optional)">
+            <input className={inputClass} type="url" value={form.logo_url} onChange={(e) => setForm({ ...form, logo_url: e.target.value })} placeholder="https://assets.domain/logo.png" />
+          </Field>
+          <Field label="Target Stripe Currency Base">
+            <select className={inputClass} value={form.currency} onChange={e => setForm({...form, currency: e.target.value})}>
+              <option value="usd">USD (United States Dollar)</option>
+              <option value="cad">CAD (Canadian Dollar)</option>
+            </select>
+          </Field>
+        </div>
 
         <button type="submit" disabled={loading} className="w-full py-3 text-white font-bold rounded-lg transition-all hover:opacity-90 disabled:opacity-50 shadow-md" style={{ backgroundColor: "#1B4332" }}>
           {loading ? "Connecting to Payment Gateway..." : "Authorize and Allocate Map Subdomain Space"}
