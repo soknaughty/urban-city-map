@@ -1473,15 +1473,37 @@ function AdvertiserForm({
   );
 }
 
+import { useState, useEffect } from "react";
+
 function SubscribersSection() {
   const { data, loading, error } = useFetch<{ total: number; subscribers: Subscriber[] }>("/subscribers/");
-  const subs = data?.subscribers ?? [];
-  const total = data?.total ?? subs.length;
+  
+  // Local state to manage active tracking lists and selection states
+  const [allSubs, setAllSubs] = useState<any[]>([]);
+  const [selectedDistributor, setSelectedDistributor] = useState<string>("");
 
+  // Sync state whenever the database hook loads new data
+  useEffect(() => {
+    if (data?.subscribers) {
+      setAllSubs(data.subscribers);
+    }
+  }, [data]);
+
+  // Extract a clean, unique list of all Distributor IDs present in your data for the dropdown options
+  const uniqueDistributors = Array.from(
+    new Set(allSubs.map((s) => s.distributor_id).filter(Boolean))
+  ) as string[];
+
+  // Contextual Filtering: Dynamically compute rows matching the active dropdown choice
+  const displayedSubs = selectedDistributor
+    ? allSubs.filter((s) => s.distributor_id === selectedDistributor)
+    : allSubs;
+
+  // Contextual Export: Only downloads what is currently filtered on screen
   const exportCsv = () => {
     const rows = [
       ["Email", "Distributor ID", "Visit Count", "First Seen", "Last Seen"],
-      ...subs.map((s: any) => [
+      ...displayedSubs.map((s: any) => [
         s.email,
         s.distributor_id || "",
         String(s.visit_count ?? ""),
@@ -1494,18 +1516,63 @@ function SubscribersSection() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `subscribers-${new Date().toISOString().slice(0, 10)}.csv`;
+    
+    // Named cleanly based on active filter criteria
+    const fileNameSuffix = selectedDistributor ? `distributor-${selectedDistributor}` : "all";
+    a.download = `subscribers-${fileNameSuffix}-${new Date().toISOString().slice(0, 10)}.csv`;
+    
     a.click();
     URL.revokeObjectURL(url);
   };
 
+  // Delete Action: Drops item from frontend state and sends the delete hook to backend
+  const handleDelete = async (email: string) => {
+    if (!confirm(`Are you sure you want to remove ${email} from this view?`)) return;
+
+    try {
+      // Optimistically remove from frontend list immediately to keep things snappy
+      setAllSubs(prev => prev.filter(s => s.email !== email));
+
+      // Trigger the API endpoint deletion on your Railway server
+      await fetch(`/subscribers/${encodeURIComponent(email)}`, {
+        method: "DELETE",
+      });
+    } catch (err) {
+      console.error("Failed to delete subscriber reference:", err);
+    }
+  };
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-700">
-          <span className="font-semibold">{total}</span> total subscribers
-        </p>
-        <button onClick={exportCsv} disabled={subs.length === 0} className="rounded-md px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50" style={{ backgroundColor: "#1B4332" }}>Export to CSV Log</button>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <p className="text-sm text-gray-700">
+            <span className="font-semibold">{displayedSubs.length}</span> displayed ({allSubs.length} total)
+          </p>
+          
+          {/* 1. New Distributor Dropdown Filter Selection Menu */}
+          <select
+            value={selectedDistributor}
+            onChange={(e) => setSelectedDistributor(e.target.value)}
+            className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm shadow-sm focus:border-emerald-500 focus:outline-none"
+          >
+            <option value="">All Distributors</option>
+            {uniqueDistributors.map((id) => (
+              <option key={id} value={id}>
+                ID: {id}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <button 
+          onClick={exportCsv} 
+          disabled={displayedSubs.length === 0} 
+          className="rounded-md px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50" 
+          style={{ backgroundColor: "#1B4332" }}
+        >
+          Export Filtered CSV
+        </button>
       </div>
 
       {error && <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
@@ -1519,26 +1586,36 @@ function SubscribersSection() {
               <th className="px-4 py-3">Visit Count</th>
               <th className="px-4 py-3">First Seen</th>
               <th className="px-4 py-3">Last Seen</th>
+              <th className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {loading && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-gray-500">Loading…</td>
+                <td colSpan={6} className="px-4 py-6 text-center text-gray-500">Loading…</td>
               </tr>
             )}
-            {!loading && subs.length === 0 && (
+            {!loading && displayedSubs.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-gray-500">No subscriber data fields matching parameters.</td>
+                <td colSpan={6} className="px-4 py-6 text-center text-gray-500">No subscriber data matching parameters.</td>
               </tr>
             )}
-            {subs.map((s: any, i: number) => (
-              <tr key={s.email + i}>
+            {displayedSubs.map((s: any, i: number) => (
+              <tr key={s.email + i} className="hover:bg-gray-50">
                 <td className="px-4 py-3 font-medium text-gray-900">{s.email}</td>
                 <td className="px-4 py-3 text-gray-600 font-mono text-xs">{s.distributor_id || "—"}</td>
                 <td className="px-4 py-3 text-gray-600">{s.visit_count ?? 0}</td>
                 <td className="px-4 py-3 text-gray-600">{formatDate(s.created_at)}</td>
                 <td className="px-4 py-3 text-gray-600">{formatDate(s.last_seen_at)}</td>
+                {/* 2. New Delete Button Column Trigger Row */}
+                <td className="px-4 py-3 text-right">
+                  <button
+                    onClick={() => handleDelete(s.email)}
+                    className="text-xs font-semibold text-red-600 hover:text-red-900 rounded bg-red-50 hover:bg-red-100 px-2 py-1 transition-colors"
+                  >
+                    Delete
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
