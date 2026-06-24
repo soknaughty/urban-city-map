@@ -1473,8 +1473,6 @@ function AdvertiserForm({
   );
 }
 
-import { useState, useEffect } from "react";
-
 function SubscribersSection() {
   const { data, loading, error } = useFetch<{ total: number; subscribers: Subscriber[] }>("/subscribers/");
   
