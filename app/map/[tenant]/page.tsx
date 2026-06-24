@@ -85,6 +85,12 @@ export default function TenantMapPortal({ params }: PageProps) {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    
+    // ADMIN BYPASS DETECTOR: If url has ?admin=1, automatically grant access
+    if (window.location.search.includes("admin=1")) {
+      localStorage.setItem(GATE_KEY, "1");
+    }
+    
     const subscribed = localStorage.getItem(GATE_KEY) === "1";
     setNeedsEmail(!subscribed);
     setIsMounted(true);
@@ -510,7 +516,6 @@ export default function TenantMapPortal({ params }: PageProps) {
                 <button onClick={() => setSelected(null)} className="rounded-full p-1.5 text-slate-500 hover:bg-slate-100" aria-label="Close"><X className="h-5 w-5" /></button>
               </div>
               
-              {/* RESTORED & UPGRADED: Heading text removed per instruction. Gold Tier now renders text tip AND optional media block seamlessly */}
               {selected.tier === "gold" && (selected.tip || selected.tip_image_url) && (
                 <div className="mt-5 rounded-2xl border-2 p-4" style={{ borderColor: FOREST + "1F", backgroundColor: "#F0FDF4" }}>
                   {selected.tip && <p className="text-[14px] leading-relaxed text-slate-800">{selected.tip}</p>}
