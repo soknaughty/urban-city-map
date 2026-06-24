@@ -8,9 +8,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 const TOKEN_KEY = "urbandog_admin_token";
 const API_BASE = "https://urbandog-production.up.railway.app/api/v1";
 
-// ── STRIPE PAYMENT LINK CONFIGURATION ───────────────────────────────────────
-// Sourced directly from your Lovable frontend configuration to guarantee 
-// seamless cross-platform payment routing using static Checkout links.
 const STRIPE_LINKS: Record<string, Record<string, string>> = {
   "ad_cfs_z": {
     usd: "https://buy.stripe.com/test_14A8wO4Mn1RlcTtaND5ZC03",
@@ -316,7 +313,6 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   return (
     <div className="flex min-h-screen bg-white font-sans text-gray-900">
-      {/* Sidebar */}
       <aside
         className={`fixed inset-y-0 left-0 z-40 w-64 transform flex-col text-white transition-transform md:static md:flex md:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
         style={{ backgroundColor: "#1B4332" }}
@@ -354,7 +350,6 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
       {mobileOpen && <div className="fixed inset-0 z-30 bg-black/40 md:hidden" onClick={() => setMobileOpen(false)} />}
 
-      {/* Main Content Area */}
       <main className="flex-1 min-w-0">
         <header className="flex items-center justify-between border-b border-gray-200 px-4 py-3 md:px-8 md:py-5">
           <div className="flex items-center gap-3">
@@ -383,7 +378,6 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   );
 }
 
-// Dedicated Onboarding Pane for Advertisers
 function OnboardAdSection() {
   const { data: distData } = useFetch<any>("/distributors/");
   const distributors = asArray<Distributor>(distData);
@@ -441,16 +435,13 @@ function OnboardAdSection() {
         if (!assignRes.ok) console.warn("Optional network link attachment failed.");
       }
 
-      // MAP TO INTERNAL STRIPE LINK DICTIONARY (Aligning exactly with Lovable Frontend rules)
       const isGold = form.tier === "gold";
       const isGroomer = form.category === "groomer";
       
-      // Determine base SKU string based on category and tier
       let skuKey = "";
       if (isGroomer) {
         skuKey = isGold ? "ad_grm_x" : "ad_grm_z";
       } else {
-        // Fallback catchall mapping for standard tiers
         skuKey = isGold ? "ad_cfs_x" : "ad_cfs_z";
       }
       
@@ -543,7 +534,6 @@ function OnboardAdSection() {
   );
 }
 
-// Dedicated Onboarding Pane for Distributors
 function OnboardDisSection() {
   const [form, setForm] = useState({
     name: "",
@@ -582,7 +572,6 @@ function OnboardDisSection() {
       if (!res.ok) throw new Error(`Distributor save processing failed with code: ${res.status}`);
       const savedDistributor = await res.json();
       
-      // ALIGNMENT: Directly access static Stripe link via currency selection 
       const targetUrl = STRIPE_LINKS["furstops_license"]?.[form.currency];
       
       if (!targetUrl) {
@@ -658,7 +647,6 @@ function OnboardDisSection() {
   );
 }
 
-// Helper Cards and Row Modifiers definitions
 function StatCard({ label, value, loading }: { label: string; value: number | string; loading?: boolean }) {
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-5">
@@ -866,10 +854,11 @@ function DistributorsSection() {
               const dotColor = status === "green" ? "#16a34a" : status === "yellow" ? "#eab308" : status === "red" ? "#dc2626" : "#d1d5db";
               const slug = anyD.slug;
               
+              // ADMIN BYPASS: Attached the `?admin=1` query parameter so administrators can immediately view the map layout
               const mapHref = slug
                 ? typeof window !== "undefined" && window.location.hostname.includes("localhost")
-                  ? `http://${slug}.localhost:3000`
-                  : `https://${slug}.furstops.com`
+                  ? `http://${slug}.localhost:3000?admin=1`
+                  : `https://${slug}.furstops.com?admin=1`
                 : "";
 
               return (
@@ -1079,10 +1068,11 @@ function AdvertisersSection() {
               const advDists = getDistributorsFor(a);
               const distributorSlug = (a as any).distributor_slug || advDists.find((d) => d.slug)?.slug || "";
               
+              // ADMIN BYPASS: Attached the `?admin=1` query parameter so administrators can immediately view the map layout
               const mapHref = distributorSlug
                 ? typeof window !== "undefined" && window.location.hostname.includes("localhost")
-                  ? `http://${distributorSlug}.localhost:3000`
-                  : `https://${distributorSlug}.furstops.com`
+                  ? `http://${distributorSlug}.localhost:3000?admin=1`
+                  : `https://${distributorSlug}.furstops.com?admin=1`
                 : "";
 
               const tierString = String(a.tier || "").toLowerCase().trim();
