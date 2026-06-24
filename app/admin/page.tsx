@@ -854,7 +854,6 @@ function DistributorsSection() {
               const dotColor = status === "green" ? "#16a34a" : status === "yellow" ? "#eab308" : status === "red" ? "#dc2626" : "#d1d5db";
               const slug = anyD.slug;
               
-              // ADMIN BYPASS: Attached the `?admin=1` query parameter so administrators can immediately view the map layout
               const mapHref = slug
                 ? typeof window !== "undefined" && window.location.hostname.includes("localhost")
                   ? `http://${slug}.localhost:3000?admin=1`
@@ -1068,7 +1067,6 @@ function AdvertisersSection() {
               const advDists = getDistributorsFor(a);
               const distributorSlug = (a as any).distributor_slug || advDists.find((d) => d.slug)?.slug || "";
               
-              // ADMIN BYPASS: Attached the `?admin=1` query parameter so administrators can immediately view the map layout
               const mapHref = distributorSlug
                 ? typeof window !== "undefined" && window.location.hostname.includes("localhost")
                   ? `http://${distributorSlug}.localhost:3000?admin=1`
@@ -1097,7 +1095,14 @@ function AdvertisersSection() {
                     )}
                   </td>
                   <td className="px-4 py-3 text-gray-600">
-                    {advDists.length > 0 ? advDists.map((d) => d.name).join(", ") : <span className="text-gray-400 italic">Unassigned</span>}
+                    {/* RESTORED: Natively utilizes backend distributor details isolated directly from transient timeout interruptions */}
+                    {(a as any).distributor_name && (a as any).distributor_name !== "Unassigned" ? (
+                      (a as any).distributor_name
+                    ) : advDists.length > 0 ? (
+                      advDists.map((d) => d.name).join(", ")
+                    ) : (
+                      <span className="text-gray-400 italic">Unassigned</span>
+                    )}
                   </td>
                   <td className="px-4 py-3 font-bold text-gray-700">
                     {tierMarker === "●" ? <span className="text-black text-xs">●</span> : tierMarker}
