@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useRef } from "react";
 import { use } from "react";
-import { X, Navigation, Tag, MapPin, Crosshair, Bell } from "lucide-react";
+import { X, Navigation, Tag, MapPin, Crosshair, Bell, Globe, Phone } from "lucide-react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 
@@ -86,7 +86,6 @@ export default function TenantMapPortal({ params }: PageProps) {
   useEffect(() => {
     if (typeof window === "undefined") return;
     
-    // ADMIN BYPASS DETECTOR: If url has ?admin=1, automatically grant access
     if (window.location.search.includes("admin=1")) {
       localStorage.setItem(GATE_KEY, "1");
     }
@@ -512,6 +511,23 @@ export default function TenantMapPortal({ params }: PageProps) {
                   <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: TEAL }}>{catMeta(selected.cat).label}</p>
                   <h2 className="mt-0.5 text-xl font-extrabold leading-tight text-slate-900">{selected.name}</h2>
                   <p className="mt-1 flex items-center gap-1 text-[13px] font-medium text-slate-600"><MapPin className="h-3.5 w-3.5" />{selected.address ?? selected.distance}</p>
+                  
+                  {/* NEW: Display Website and Phone ONLY for Gold Tier Advertisers */}
+                  {selected.tier === "gold" && (selected.website || selected.phone) && (
+                    <div className="mt-2.5 flex flex-wrap gap-2">
+                      {selected.website && (
+                        <a href={selected.website} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1.5 text-[12px] font-semibold text-slate-700 transition-colors hover:bg-slate-200">
+                          <Globe className="h-3.5 w-3.5" /> Website
+                        </a>
+                      )}
+                      {selected.phone && (
+                        <a href={`tel:${selected.phone}`} className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1.5 text-[12px] font-semibold text-slate-700 transition-colors hover:bg-slate-200">
+                          <Phone className="h-3.5 w-3.5" /> {selected.phone}
+                        </a>
+                      )}
+                    </div>
+                  )}
+
                 </div>
                 <button onClick={() => setSelected(null)} className="rounded-full p-1.5 text-slate-500 hover:bg-slate-100" aria-label="Close"><X className="h-5 w-5" /></button>
               </div>
