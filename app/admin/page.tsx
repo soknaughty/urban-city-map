@@ -127,7 +127,7 @@ type Distributor = {
   center_lng?: number;
   map_url?: string;
   logo_url?: string;
-  phone?: string; // <-- Added optional phone tracker string
+  phone?: string;
 };
 
 type Advertiser = {
@@ -164,6 +164,7 @@ type Alert = {
   scope?: string;
   active?: boolean;
   is_active?: boolean;
+  distributor_id?: string;
 };
 
 type StatsResponse = {
@@ -361,9 +362,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             >
               ☰
             </button>
-            <h1 className="text-xl font-semibold md:text-2xl">
-              {section === "onboard-ad" ? "Onboard - Ad" : section === "onboard-dis" ? "Onboard - Dis" : section}
-            </h1>
+            <h1 className="text-xl font-bold capitalize">{section.replace("-", " ")}</h1>
           </div>
         </header>
         <div className="p-4 md:p-8">
@@ -380,7 +379,6 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   );
 }
 
-// Dedicated Onboarding Pane for Advertisers
 function OnboardAdSection() {
   const { data: distData } = useFetch<any>("/distributors/");
   const distributors = asArray<Distributor>(distData);
@@ -553,7 +551,6 @@ function OnboardAdSection() {
   );
 }
 
-// Dedicated Onboarding Pane for Distributors
 function OnboardDisSection() {
   const [form, setForm] = useState({
     name: "",
@@ -562,7 +559,7 @@ function OnboardDisSection() {
     logo_url: "",
     brand_color: "#1B4332",
     currency: "usd",
-    phone: "", // <-- Added state hook key
+    phone: "", 
   });
 
   const [loading, setLoading] = useState(false);
@@ -583,12 +580,11 @@ function OnboardDisSection() {
         name: form.name,
         slug: computedSlug,
         address_string: form.address,
-        brand_color: form.brand_color,
         website_url: form.website_url || undefined,
+        brand_color_hex: form.brand_color,
         logo_url: form.logo_url || undefined,
-        phone: form.phone || undefined, // <-- Pass optional phone payload data
+        phone: form.phone || undefined,
       };
-
       const res = await authFetch("/distributors/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -659,9 +655,9 @@ function OnboardDisSection() {
               title="Copy to clipboard"
             >
               {copied ? (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span className="text-xs">✓</span>
               ) : (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                <span className="text-xs">📋</span>
               )}
             </button>
           </div>
@@ -886,8 +882,12 @@ function DistributorsSection() {
   const toggle = async (d: Distributor) => {
     setBusyId(d.id);
     try {
-      await authFetch(`/distributors/${d.id}/activate?is_active=${!d.active}`, { method: "PATCH" });
+      await authFetch(`/distributors/${d.id}/activate?is_active=${!d.active}`, {
+        method: "PATCH",
+      });
       refetch();
+    } catch (e) {
+      console.error(e);
     } finally {
       setBusyId(null);
     }
@@ -998,7 +998,7 @@ function DistributorForm({ onClose, onSaved }: { onClose: () => void; onSaved: (
     website_url: "",
     logo_url: "",
     brand_color: "#1B4332",
-    phone: "", // <-- Added field state hook
+    phone: "", 
   });
   const slug = slugify(form.name);
   const [saving, setSaving] = useState(false);
@@ -1017,7 +1017,7 @@ function DistributorForm({ onClose, onSaved }: { onClose: () => void; onSaved: (
       };
       if (form.website_url) body.website_url = form.website_url;
       if (form.logo_url) body.logo_url = form.logo_url;
-      if (form.phone) body.phone = form.phone; // <-- Direct API route mapping
+      if (form.phone) body.phone = form.phone; 
       
       const r = await authFetch(`/distributors/`, {
         method: "POST",
@@ -1242,7 +1242,7 @@ function EditDistributorForm({
     website_url: distributor.website_url ?? "",
     logo_url: distributor.logo_url ?? "",
     brand_color: distributor.brand_color ?? "#1B4332",
-    phone: (distributor as any).phone ?? "", // <-- Capture saved phone field values
+    phone: (distributor as any).phone ?? "", 
     is_active: !!distributor.active,
   };
   const [form, setForm] = useState(initial);
@@ -1263,8 +1263,7 @@ function EditDistributorForm({
       if (form.address !== initial.address) body.address_string = form.address;
       if (form.website_url !== initial.website_url) body.website_url = form.website_url;
       if (form.logo_url !== initial.logo_url) body.logo_url = form.logo_url;
-      if (form.brand_color !== initial.brand_color) body.brand_color = form.brand_color;
-      if (form.phone !== initial.phone) body.phone = form.phone; // <-- Handle optional PATCH differential checks
+      if (form.phone !== initial.phone) body.phone = form.phone; 
       if (form.is_active !== initial.is_active) body.is_active = form.is_active;
 
       if (Object.keys(body).length === 0) {
@@ -1400,7 +1399,7 @@ function AdvertiserForm({
 
       const distributorChanged = !isEdit || form.distributor_id !== (initial as any).distributor_id;
       if (savedId && distributorChanged && form.distributor_id) {
-        const ar = await authFetch(`/maps/assignments`, {
+        await authFetch(`/maps/assignments`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1408,7 +1407,6 @@ function AdvertiserForm({
             advertiser_id: savedId,
           }),
         });
-        if (!ar.ok) throw new Error(`Assignment failed: ${ar.status}`);
       }
 
       onSaved();
@@ -1512,7 +1510,7 @@ function SubscribersSection() {
 
     try {
       setAllSubs(prev => prev.filter(s => s.email !== email));
-      await fetch(`/subscribers/${encodeURIComponent(email)}`, {
+      await fetch(`${API_BASE}/subscribers/${encodeURIComponent(email)}`, {
         method: "DELETE",
       });
     } catch (err) {
@@ -1603,22 +1601,28 @@ function SubscribersSection() {
 
 function AlertsSection() {
   const { data, loading, error, refetch } = useFetch<any>("/alerts/");
-  const alerts = asArray<Alert>(data);
+  const distQ = useFetch<any>("/distributors/");
+  const rawAlerts = asArray<Alert>(data);
+  const distributors = asArray<Distributor>(distQ.data);
+
   const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<Alert | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+
   const toggle = async (a: Alert) => {
     setBusyId(a.id);
     try {
-      await authFetch(`/alerts/${a.id}/activate?is_active=${!a.active}`, { method: "PATCH" });
+      await authFetch(`/alerts/${a.id}/activate?is_active=${!a.is_active}`, { method: "PATCH" });
       refetch();
     } finally {
       setBusyId(null);
     }
   };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-500">{alerts.length} total active broadcast streams</p>
+        <p className="text-sm text-gray-500">{rawAlerts.length} total active broadcast streams</p>
         <button onClick={() => setShowForm(true)} className="rounded-md px-4 py-2 text-sm font-semibold text-white hover:opacity-90" style={{ backgroundColor: "#1B4332" }}>+ Create Live Alert Block</button>
       </div>
 
@@ -1643,12 +1647,12 @@ function AlertsSection() {
                 <td colSpan={7} className="px-4 py-6 text-center text-gray-500">Loading operational calendar items…</td>
               </tr>
             )}
-            {!loading && alerts.length === 0 && (
+            {!loading && rawAlerts.length === 0 && (
               <tr>
                 <td colSpan={7} className="px-4 py-6 text-center text-gray-500">No alerts found.</td>
               </tr>
             )}
-            {alerts.map((a) => (
+            {rawAlerts.map((a) => (
               <tr key={a.id}>
                 <td className="px-4 py-3 font-medium text-gray-900">{a.title}</td>
                 <td className="px-4 py-3 text-gray-600">{a.sponsor_name || "—"}</td>
@@ -1656,10 +1660,13 @@ function AlertsSection() {
                 <td className="px-4 py-3 text-gray-600">{formatDate(a.end_date)}</td>
                 <td className="px-4 py-3 text-gray-600">{a.scope || "—"}</td>
                 <td className="px-4 py-3">
-                  <Badge active={!!a.active} />
+                  <Badge active={!!a.is_active} />
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <button disabled={busyId === a.id} onClick={() => toggle(a)} className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-50 disabled:opacity-50 text-gray-700 bg-white">{a.active ? "Deactivate" : "Activate"}</button>
+                  <div className="flex justify-end gap-2">
+                    <button onClick={() => setEditing(a)} className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-50 text-gray-700 bg-white">✏️ Edit</button>
+                    <button disabled={busyId === a.id} onClick={() => toggle(a)} className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-50 disabled:opacity-50 text-gray-700 bg-white">{a.is_active ? "Deactivate" : "Activate"}</button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -1668,13 +1675,17 @@ function AlertsSection() {
       </div>
 
       {showForm && (
-        <AlertForm onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); refetch(); }} />
+        <AlertForm distributors={distributors} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); refetch(); }} />
+      )}
+
+      {editing && (
+        <EditAlertForm distributors={distributors} alert={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); refetch(); }} />
       )}
     </div>
   );
 }
 
-function AlertForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+function AlertForm({ distributors, onClose, onSaved }: { distributors: Distributor[]; onClose: () => void; onSaved: () => void }) {
   const [form, setForm] = useState({
     title: "",
     body: "",
@@ -1683,10 +1694,12 @@ function AlertForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => v
     start_date: "",
     end_date: "",
     scope: "global",
+    distributor_id: "",
     is_active: true,
   });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -1700,6 +1713,7 @@ function AlertForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => v
         start_date: form.start_date || undefined,
         end_date: form.end_date || undefined,
         scope: form.scope,
+        distributor_id: form.scope === "local" && form.distributor_id ? form.distributor_id : undefined,
         is_active: form.is_active,
       };
       const r = await authFetch(`/alerts/`, {
@@ -1715,6 +1729,7 @@ function AlertForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => v
       setSaving(false);
     }
   };
+
   return (
     <Modal title="Deploy Live Map Broadcast Banner Alert" onClose={onClose}>
       <form onSubmit={submit} className="space-y-3">
@@ -1739,11 +1754,35 @@ function AlertForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => v
           </Field>
         </div>
         <Field label="Scope">
-          <select className={inputClass} value={form.scope} onChange={(e) => setForm({ ...form, scope: e.target.value })} >
+          <select 
+            className={inputClass} 
+            value={form.scope} 
+            onChange={(e) => {
+              const val = e.target.value;
+              setForm({ ...form, scope: val, distributor_id: val === "global" ? "" : form.distributor_id });
+            }} 
+          >
             <option value="global">global</option>
-            <option value="distributor">distributor</option>
+            <option value="local">local</option>
           </select>
         </Field>
+
+        {form.scope === "local" && (
+          <Field label="Select Target Map Distributor Store">
+            <select 
+              className={inputClass} 
+              value={form.distributor_id} 
+              onChange={(e) => setForm({ ...form, distributor_id: e.target.value })}
+              required
+            >
+              <option value="">— Choose a Distributor —</option>
+              {distributors.map((d) => (
+                <option key={d.id} value={d.id}>{d.name} ({d.slug})</option>
+              ))}
+            </select>
+          </Field>
+        )}
+
         <label className="flex items-center gap-2 text-sm text-gray-700">
           <input type="checkbox" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} />
           <span>Active Map Banner</span>
@@ -1760,6 +1799,138 @@ function AlertForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => v
   );
 }
 
+function EditAlertForm({
+  distributors,
+  alert,
+  onClose,
+  onSaved,
+}: {
+  distributors: Distributor[];
+  alert: Alert;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const initial = {
+    title: alert.title ?? "",
+    body: alert.body ?? "",
+    sponsor_name: alert.sponsor_name ?? "",
+    sponsor_logo_url: alert.sponsor_logo_url ?? "",
+    start_date: alert.start_date ? alert.start_date.substring(0, 10) : "",
+    end_date: alert.end_date ? alert.end_date.substring(0, 10) : "",
+    scope: alert.scope === "distributor" ? "local" : (alert.scope ?? "global"),
+    distributor_id: alert.distributor_id ?? "",
+    is_active: !!alert.is_active,
+  };
+
+  const [form, setForm] = useState(initial);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setErr(null);
+    try {
+      const body: Record<string, any> = {};
+      if (form.title !== initial.title) body.title = form.title;
+      if (form.body !== initial.body) body.body = form.body;
+      if (form.sponsor_name !== initial.sponsor_name) body.sponsor_name = form.sponsor_name || null;
+      if (form.sponsor_logo_url !== initial.sponsor_logo_url) body.sponsor_logo_url = form.sponsor_logo_url || null;
+      if (form.start_date !== initial.start_date) body.start_date = form.start_date || null;
+      if (form.end_date !== initial.end_date) body.end_date = form.end_date || null;
+      if (form.scope !== initial.scope) body.scope = form.scope;
+      if (form.is_active !== initial.is_active) body.is_active = form.is_active;
+
+      // Ensure local mappings are preserved
+      if (form.scope === "local") {
+        body.distributor_id = form.distributor_id || null;
+      } else {
+        body.distributor_id = null;
+      }
+
+      const r = await authFetch(`/alerts/${alert.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) throw new Error(`Save failed: ${r.status}`);
+      onSaved();
+    } catch (e: any) {
+      setErr(e.message || String(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal title="Edit Broadcast Alert Banner" onClose={onClose}>
+      <form onSubmit={submit} className="space-y-3">
+        <Field label="Title">
+          <input className={inputClass} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
+        </Field>
+        <Field label="Body">
+          <textarea className={inputClass} rows={3} value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} />
+        </Field>
+        <Field label="Sponsor Name">
+          <input className={inputClass} value={form.sponsor_name} onChange={(e) => setForm({ ...form, sponsor_name: e.target.value })} />
+        </Field>
+        <Field label="Sponsor Logo URL">
+          <input className={inputClass} type="url" value={form.sponsor_logo_url} onChange={(e) => setForm({ ...form, sponsor_logo_url: e.target.value })} />
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Start Date">
+            <input className={inputClass} type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} />
+          </Field>
+          <Field label="End Date">
+            <input className={inputClass} type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} />
+          </Field>
+        </div>
+        <Field label="Scope">
+          <select 
+            className={inputClass} 
+            value={form.scope} 
+            onChange={(e) => {
+              const val = e.target.value;
+              setForm({ ...form, scope: val, distributor_id: val === "global" ? "" : form.distributor_id });
+            }} 
+          >
+            <option value="global">global</option>
+            <option value="local">local</option>
+          </select>
+        </Field>
+
+        {form.scope === "local" && (
+          <Field label="Select Target Map Distributor Store">
+            <select 
+              className={inputClass} 
+              value={form.distributor_id} 
+              onChange={(e) => setForm({ ...form, distributor_id: e.target.value })}
+              required
+            >
+              <option value="">— Choose a Distributor —</option>
+              {distributors.map((d) => (
+                <option key={d.id} value={d.id}>{d.name} ({d.slug})</option>
+              ))}
+            </select>
+          </Field>
+        )}
+
+        <label className="flex items-center gap-2 text-sm text-gray-700">
+          <input type="checkbox" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} />
+          <span>Active Map Banner</span>
+        </label>
+        {err && <p className="text-sm text-red-600">{err}</p>}
+        <div className="flex justify-end gap-2 pt-2">
+          <button type="button" onClick={onClose} className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 bg-white hover:bg-gray-50">Cancel</button>
+          <button type="submit" disabled={saving} className="rounded-md px-4 py-2 text-sm font-semibold text-white disabled:opacity-50" style={{ backgroundColor: "#1B4332" }}>
+            {saving ? "Saving Changes…" : "Commit Structure Mod"}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -1768,7 +1939,7 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
           <h3 className="text-base font-semibold">{title}</h3>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-900">✕</button>
         </div>
-        <div className="p-5">{children}</div>
+        <div className="p-5 max-h-[80vh] overflow-y-auto">{children}</div>
       </div>
     </div>
   );
