@@ -127,6 +127,7 @@ type Distributor = {
   center_lng?: number;
   map_url?: string;
   logo_url?: string;
+  phone?: string; // <-- Added optional phone tracker string
 };
 
 type Advertiser = {
@@ -195,6 +196,7 @@ export default function AdminApp() {
 
   if (!checked) return null;
   if (!authed) return <LoginForm onSuccess={() => setAuthed(true)} />;
+
   return (
     <Dashboard
       onLogout={() => {
@@ -382,7 +384,6 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 function OnboardAdSection() {
   const { data: distData } = useFetch<any>("/distributors/");
   const distributors = asArray<Distributor>(distData);
-
   const [form, setForm] = useState({
     business_name: "",
     category: "dining",
@@ -394,7 +395,6 @@ function OnboardAdSection() {
     tier: "silver",
     currency: "usd",
   });
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<boolean>(false);
@@ -404,7 +404,6 @@ function OnboardAdSection() {
     setLoading(true);
     setError(null);
     setSuccess(false);
-
     try {
       const advertiserPayload = {
         business_name: form.business_name,
@@ -415,17 +414,14 @@ function OnboardAdSection() {
         insider_tip: form.insider_tip || undefined,
         tier: form.tier,
       };
-
       const res = await authFetch("/advertisers/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(advertiserPayload),
       });
-
       if (!res.ok) throw new Error(`Onboarding execution failed with status: ${res.status}`);
       const savedAdvertiser = await res.json();
       const newId = savedAdvertiser?.id;
-
       if (newId && form.distributor_id) {
         const assignRes = await authFetch("/maps/assignments", {
           method: "POST",
@@ -449,17 +445,13 @@ function OnboardAdSection() {
       }
       
       const targetUrl = STRIPE_LINKS[skuKey]?.[form.currency];
-      
       if (!targetUrl) {
          throw new Error("No secure Stripe checkout link configuration exists for this combination.");
       }
       
       const url = new URL(targetUrl);
       url.searchParams.set("client_reference_id", newId);
-      
-      // Open Stripe in a new tab instead of overriding the current window
       window.open(url.toString(), '_blank');
-      
       setSuccess(true);
       setLoading(false);
       
@@ -570,6 +562,7 @@ function OnboardDisSection() {
     logo_url: "",
     brand_color: "#1B4332",
     currency: "usd",
+    phone: "", // <-- Added state hook key
   });
 
   const [loading, setLoading] = useState(false);
@@ -593,6 +586,7 @@ function OnboardDisSection() {
         brand_color: form.brand_color,
         website_url: form.website_url || undefined,
         logo_url: form.logo_url || undefined,
+        phone: form.phone || undefined, // <-- Pass optional phone payload data
       };
 
       const res = await authFetch("/distributors/", {
@@ -613,17 +607,14 @@ function OnboardDisSection() {
       const url = new URL(targetUrl);
       url.searchParams.set("client_reference_id", savedDistributor.id);
       
-      // Open Stripe in a new tab instead of overriding the current window
       window.open(url.toString(), '_blank');
       
-      // Display the generated URL with the admin bypass appended for the store owner
       const mapDomain = typeof window !== "undefined" && window.location.hostname.includes("localhost")
         ? `http://${computedSlug}.localhost:3000?admin=1`
         : `https://${computedSlug}.furstops.com?admin=1`;
       
       setSuccessUrl(mapDomain);
       setLoading(false);
-      
     } catch (err: any) {
       setError(err.message || "A verification fault occurred.");
       setLoading(false);
@@ -678,7 +669,7 @@ function OnboardDisSection() {
           <button 
             type="button" 
             onClick={() => {
-              setForm({ name: "", address: "", website_url: "", logo_url: "", brand_color: "#1B4332", currency: "usd" });
+              setForm({ name: "", address: "", website_url: "", logo_url: "", brand_color: "#1B4332", currency: "usd", phone: "" });
               setSuccessUrl(null);
               setCopied(false);
             }} 
@@ -724,6 +715,12 @@ function OnboardDisSection() {
               <option value="usd">USD (United States Dollar)</option>
               <option value="cad">CAD (Canadian Dollar)</option>
             </select>
+          </Field>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Field label="Corporate Contact Phone Number (Optional)">
+            <input className={inputClass} value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} placeholder="(555) 000-0000" />
           </Field>
         </div>
 
@@ -795,7 +792,6 @@ function DashboardSection() {
   const { data, loading, error } = useFetch<StatsResponse>("/stats/");
   const { data: upcomingData, loading: upcomingLoading, error: upcomingError } = useFetch<any>("/alerts/upcoming");
   const [showAll, setShowAll] = useState(false);
-  
   const upcoming = asArray<Alert>(upcomingData)
     .slice()
     .sort((a, b) => {
@@ -803,7 +799,6 @@ function DashboardSection() {
       const bd = b.start_date ? new Date(b.start_date).getTime() : 0;
       return ad - bd;
     });
-
   const now = Date.now();
   const in30Days = now + 30 * 24 * 60 * 60 * 1000;
   const next30 = upcoming.filter((a) => {
@@ -941,13 +936,11 @@ function DistributorsSection() {
               const status = String(anyD.health_status || "").toLowerCase();
               const dotColor = status === "green" ? "#16a34a" : status === "yellow" ? "#eab308" : status === "red" ? "#dc2626" : "#d1d5db";
               const slug = anyD.slug;
-              
               const mapHref = slug
                 ? typeof window !== "undefined" && window.location.hostname.includes("localhost")
                   ? `http://${slug}.localhost:3000?admin=1`
                   : `https://${slug}.furstops.com?admin=1`
                 : "";
-
               return (
               <tr key={d.id}>
                 <td className="px-4 py-3 font-medium text-gray-900">{d.name}</td>
@@ -1005,6 +998,7 @@ function DistributorForm({ onClose, onSaved }: { onClose: () => void; onSaved: (
     website_url: "",
     logo_url: "",
     brand_color: "#1B4332",
+    phone: "", // <-- Added field state hook
   });
   const slug = slugify(form.name);
   const [saving, setSaving] = useState(false);
@@ -1023,6 +1017,8 @@ function DistributorForm({ onClose, onSaved }: { onClose: () => void; onSaved: (
       };
       if (form.website_url) body.website_url = form.website_url;
       if (form.logo_url) body.logo_url = form.logo_url;
+      if (form.phone) body.phone = form.phone; // <-- Direct API route mapping
+      
       const r = await authFetch(`/distributors/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1051,6 +1047,9 @@ function DistributorForm({ onClose, onSaved }: { onClose: () => void; onSaved: (
         </Field>
         <Field label="Website URL">
           <input className={inputClass} type="url" value={form.website_url} onChange={(e) => setForm({ ...form, website_url: e.target.value })} />
+        </Field>
+        <Field label="Phone (Optional)">
+          <input className={inputClass} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="(555) 000-0000" />
         </Field>
         <Field label="Logo URL">
           <input className={inputClass} type="url" value={form.logo_url} onChange={(e) => setForm({ ...form, logo_url: e.target.value })} placeholder="https://…" />
@@ -1084,7 +1083,6 @@ function AdvertisersSection() {
       distributor_id: distributor_id ? String(distributor_id) : undefined,
     };
   });
-  
   const distributors = asArray<Distributor>(distQ.data);
   const [showForm, useStateForm] = useState(false);
   const [editing, setEditing] = useState<Advertiser | null>(null);
@@ -1092,7 +1090,6 @@ function AdvertisersSection() {
 
   const distMap = new Map<string, Distributor>();
   distributors.forEach((d) => distMap.set(String(d.id), d));
-
   const getDistributorsFor = (a: Advertiser): Distributor[] => {
     const ids: string[] = [];
     const anyA = a as any;
@@ -1101,7 +1098,6 @@ function AdvertisersSection() {
     else if (a.distributor_id) ids.push(String(a.distributor_id));
     return ids.map((id) => distMap.get(id)).filter(Boolean) as Distributor[];
   };
-
   const toggle = async (a: Advertiser) => {
     setBusyId(a.id);
     try {
@@ -1111,7 +1107,6 @@ function AdvertisersSection() {
       setBusyId(null);
     }
   };
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -1160,7 +1155,6 @@ function AdvertisersSection() {
                   ? `http://${distributorSlug}.localhost:3000?admin=1`
                   : `https://${distributorSlug}.furstops.com?admin=1`
                 : "";
-
               const tierString = String(a.tier || "").toLowerCase().trim();
               const tierMarker = tierString === "gold" ? "G" : tierString === "silver" ? "S" : "●";
 
@@ -1183,7 +1177,6 @@ function AdvertisersSection() {
                     )}
                   </td>
                   <td className="px-4 py-3 text-gray-600">
-                    {/* RESTORED: Natively utilizes backend distributor details isolated directly from transient timeout interruptions */}
                     {(a as any).distributor_name && (a as any).distributor_name !== "Unassigned" ? (
                       (a as any).distributor_name
                     ) : advDists.length > 0 ? (
@@ -1249,6 +1242,7 @@ function EditDistributorForm({
     website_url: distributor.website_url ?? "",
     logo_url: distributor.logo_url ?? "",
     brand_color: distributor.brand_color ?? "#1B4332",
+    phone: (distributor as any).phone ?? "", // <-- Capture saved phone field values
     is_active: !!distributor.active,
   };
   const [form, setForm] = useState(initial);
@@ -1270,6 +1264,7 @@ function EditDistributorForm({
       if (form.website_url !== initial.website_url) body.website_url = form.website_url;
       if (form.logo_url !== initial.logo_url) body.logo_url = form.logo_url;
       if (form.brand_color !== initial.brand_color) body.brand_color = form.brand_color;
+      if (form.phone !== initial.phone) body.phone = form.phone; // <-- Handle optional PATCH differential checks
       if (form.is_active !== initial.is_active) body.is_active = form.is_active;
 
       if (Object.keys(body).length === 0) {
@@ -1304,6 +1299,9 @@ function EditDistributorForm({
         </Field>
         <Field label="Website URL">
           <input className={inputClass} type="url" value={form.website_url} onChange={(e) => setForm({ ...form, website_url: e.target.value })} />
+        </Field>
+        <Field label="Phone (Optional)">
+          <input className={inputClass} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="(555) 000-0000" />
         </Field>
         <Field label="Logo URL">
           <input className={inputClass} type="url" value={form.logo_url} onChange={(e) => setForm({ ...form, logo_url: e.target.value })} placeholder="https://…" />
@@ -1352,14 +1350,12 @@ function AdvertiserForm({
   const [form, setForm] = useState(initial);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setErr(null);
     try {
       const toPayloadKey = (k: string) => (k === "address" ? "address_string" : k);
-
       let body: any;
       let skipSave = false;
       if (isEdit) {
@@ -1392,7 +1388,6 @@ function AdvertiserForm({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
-        
         if (!r.ok) throw new Error(`Save failed: ${r.status}`);
         
         try {
@@ -1423,7 +1418,6 @@ function AdvertiserForm({
       setSaving(false);
     }
   };
-
   return (
     <Modal title={isEdit ? "Edit Advertiser Settings" : "Deploy Advertiser Instance"} onClose={onClose}>
       <form onSubmit={submit} className="space-y-3">
@@ -1475,29 +1469,20 @@ function AdvertiserForm({
 
 function SubscribersSection() {
   const { data, loading, error } = useFetch<{ total: number; subscribers: Subscriber[] }>("/subscribers/");
-  
-  // Local state to manage active tracking lists and selection states
   const [allSubs, setAllSubs] = useState<any[]>([]);
   const [selectedDistributor, setSelectedDistributor] = useState<string>("");
 
-  // Sync state whenever the database hook loads new data
   useEffect(() => {
     if (data?.subscribers) {
       setAllSubs(data.subscribers);
     }
   }, [data]);
-
-  // Extract a clean, unique list of all Distributor IDs present in your data for the dropdown options
   const uniqueDistributors = Array.from(
     new Set(allSubs.map((s) => s.distributor_id).filter(Boolean))
   ) as string[];
-
-  // Contextual Filtering: Dynamically compute rows matching the active dropdown choice
   const displayedSubs = selectedDistributor
     ? allSubs.filter((s) => s.distributor_id === selectedDistributor)
     : allSubs;
-
-  // Contextual Export: Only downloads what is currently filtered on screen
   const exportCsv = () => {
     const rows = [
       ["Email", "Distributor ID", "Visit Count", "First Seen", "Last Seen"],
@@ -1515,7 +1500,6 @@ function SubscribersSection() {
     const a = document.createElement("a");
     a.href = url;
     
-    // Named cleanly based on active filter criteria
     const fileNameSuffix = selectedDistributor ? `distributor-${selectedDistributor}` : "all";
     a.download = `subscribers-${fileNameSuffix}-${new Date().toISOString().slice(0, 10)}.csv`;
     
@@ -1523,15 +1507,11 @@ function SubscribersSection() {
     URL.revokeObjectURL(url);
   };
 
-  // Delete Action: Drops item from frontend state and sends the delete hook to backend
   const handleDelete = async (email: string) => {
     if (!confirm(`Are you sure you want to remove ${email} from this view?`)) return;
 
     try {
-      // Optimistically remove from frontend list immediately to keep things snappy
       setAllSubs(prev => prev.filter(s => s.email !== email));
-
-      // Trigger the API endpoint deletion on your Railway server
       await fetch(`/subscribers/${encodeURIComponent(email)}`, {
         method: "DELETE",
       });
@@ -1548,7 +1528,6 @@ function SubscribersSection() {
             <span className="font-semibold">{displayedSubs.length}</span> displayed ({allSubs.length} total)
           </p>
           
-          {/* 1. New Distributor Dropdown Filter Selection Menu */}
           <select
             value={selectedDistributor}
             onChange={(e) => setSelectedDistributor(e.target.value)}
@@ -1605,7 +1584,6 @@ function SubscribersSection() {
                 <td className="px-4 py-3 text-gray-600">{s.visit_count ?? 0}</td>
                 <td className="px-4 py-3 text-gray-600">{formatDate(s.created_at)}</td>
                 <td className="px-4 py-3 text-gray-600">{formatDate(s.last_seen_at)}</td>
-                {/* 2. New Delete Button Column Trigger Row */}
                 <td className="px-4 py-3 text-right">
                   <button
                     onClick={() => handleDelete(s.email)}
@@ -1628,7 +1606,6 @@ function AlertsSection() {
   const alerts = asArray<Alert>(data);
   const [showForm, setShowForm] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
-
   const toggle = async (a: Alert) => {
     setBusyId(a.id);
     try {
@@ -1638,7 +1615,6 @@ function AlertsSection() {
       setBusyId(null);
     }
   };
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -1711,7 +1687,6 @@ function AlertForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => v
   });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -1740,7 +1715,6 @@ function AlertForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => v
       setSaving(false);
     }
   };
-
   return (
     <Modal title="Deploy Live Map Broadcast Banner Alert" onClose={onClose}>
       <form onSubmit={submit} className="space-y-3">
