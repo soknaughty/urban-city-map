@@ -253,7 +253,7 @@ function LoginForm({ onSuccess }: { onSuccess: () => void }) {
           >
             <Bone className="h-6 w-6 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Baby Steps Admin</h1>
+          <h1 className="text-2xl font-bold text-gray-900">FurStops Admin</h1>
           <p className="mt-1 text-sm text-gray-500">Sign in to continue</p>
         </div>
         <div className="space-y-3">
@@ -322,7 +322,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       >
         <div className="flex items-center gap-2 px-6 py-5 border-b border-white/10">
           <Bone className="h-6 w-6" />
-          <span className="text-lg font-bold tracking-tight">Baby Steps</span>
+          <span className="text-lg font-bold tracking-tight">FurStops</span>
         </div>
         <nav className="flex-1 px-3 py-4 space-y-1">
           {nav.map((n) => (
@@ -878,6 +878,7 @@ function DistributorsSection() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Distributor | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const toggle = async (d: Distributor) => {
     setBusyId(d.id);
@@ -893,10 +894,32 @@ function DistributorsSection() {
     }
   };
 
+  const filteredDistributors = useMemo(() => {
+    if (!searchQuery.trim()) return distributors;
+    const query = searchQuery.toLowerCase().trim();
+    return distributors.filter((d) => 
+      d.name.toLowerCase().includes(query) ||
+      d.slug.toLowerCase().includes(query) ||
+      (d as any).address_string?.toLowerCase().includes(query) ||
+      (d as any).address?.toLowerCase().includes(query)
+    );
+  }, [distributors, searchQuery]);
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-500">{distributors.length} total</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <p className="text-sm text-gray-500">
+            <span className="font-semibold">{filteredDistributors.length}</span> displayed ({distributors.length} total)
+          </p>
+          <input
+            type="text"
+            placeholder="Search by name, slug, address..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm shadow-sm focus:border-emerald-500 focus:outline-none w-64 text-black"
+          />
+        </div>
         <button
           onClick={() => setShowForm(true)}
           className="rounded-md px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
@@ -926,12 +949,12 @@ function DistributorsSection() {
                 <td colSpan={6} className="px-4 py-6 text-center text-gray-500">Loading…</td>
               </tr>
             )}
-            {!loading && distributors.length === 0 && (
+            {!loading && filteredDistributors.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-4 py-6 text-center text-gray-500">No distributors matching query criteria found.</td>
               </tr>
             )}
-            {distributors.map((d) => {
+            {filteredDistributors.map((d) => {
               const anyD = d as any;
               const status = String(anyD.health_status || "").toLowerCase();
               const dotColor = status === "green" ? "#16a34a" : status === "yellow" ? "#eab308" : status === "red" ? "#dc2626" : "#d1d5db";
@@ -1129,7 +1152,7 @@ function AdvertisersSection() {
           <select
             value={selectedDistributor}
             onChange={(e) => setSelectedDistributor(e.target.value)}
-            className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm shadow-sm focus:border-emerald-500 focus:outline-none"
+            className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm shadow-sm focus:border-emerald-500 focus:outline-none text-black"
           >
             <option value="">All Distributors</option>
             <option value="unassigned">Unassigned / Root Layout</option>
