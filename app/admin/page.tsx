@@ -116,6 +116,7 @@ function asArray<T>(v: any): T[] {
   else if (v && Array.isArray(v.items)) arr = v.items;
   else if (v && Array.isArray(v.results)) arr = v.results;
   else if (v && Array.isArray(v.data)) arr = v.data;
+  else if (v && Array.isArray(v.subscribers)) arr = v.subscribers; // 💡 Fixed: Unpack nested subscribers envelope
   return arr.map((it) =>
     it && typeof it === "object" && "is_active" in it && !("active" in it)
       ? { ...it, active: (it as any).is_active }
@@ -299,7 +300,6 @@ function LoginForm({ onSuccess }: { onSuccess: () => void }) {
           {loading ? "Signing in…" : "Sign in"}
         </button>
         <div className="text-center">
-          {/* 💡 Fixed: Swapped <Link> out for an <a> element to prevent standalone platform compiler faults */}
           <a href="/forgot-password" className="text-sm font-medium text-gray-600 hover:text-gray-900">
             Forgot password?
           </a>
@@ -390,7 +390,6 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   );
 }
 
-// Dedicated Onboarding Pane for Advertisers
 function OnboardAdSection() {
   const { data: distData } = useFetch<any>("/distributors/");
   const distributors = asArray<Distributor>(distData);
@@ -563,7 +562,6 @@ function OnboardAdSection() {
   );
 }
 
-// Dedicated Onboarding Pane for Distributors
 function OnboardDisSection() {
   const [form, setForm] = useState({
     name: "",
@@ -1060,10 +1058,10 @@ function DistributorsSection() {
                 <td className="px-4 py-3 text-gray-600">{formatDate(d.created_at)}</td>
                 <td className="px-4 py-3">
                   <div className="flex justify-end gap-2">
-                    <button onClick={() => setEditing(d)} className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-50">✏️ Edit</button>
-                    <button disabled={busyId === d.id} onClick={() => toggle(d)} className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-50 disabled:opacity-50">{d.active ? "Deactivate" : "Activate"}</button>
+                    <button onClick={() => setEditing(d)} className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-semibold hover:bg-gray-50 border-gray-300 text-slate-700 bg-white px-2.5 py-1.5 rounded transition-all">✏️ Edit</button>
+                    <button disabled={busyId === d.id} onClick={() => toggle(d)} className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-50 transition-all">{d.active ? "Deactivate" : "Activate"}</button>
                     {mapHref ? (
-                      <a href={mapHref} target="_blank" rel="noopener noreferrer" className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-50">View Map</a>
+                      <a href={mapHref} target="_blank" rel="noopener noreferrer" className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-semibold text-[#1B4332] bg-emerald-50 hover:bg-emerald-100 transition-all">View Map</a>
                     ) : (
                       <span className="text-xs text-gray-400 italic px-3 py-1">No Map</span>
                     )}
