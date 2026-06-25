@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import { Bone, UserPlus, Building2, ClipboardCheck, Sparkles } from "lucide-react";
+import { Bone, UserPlus, Building2, ClipboardCheck, Sparkles, Globe, Phone } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const TOKEN_KEY = "urbandog_admin_token";
@@ -34,6 +34,75 @@ const STRIPE_LINKS: Record<string, Record<string, string>> = {
     cad: "https://buy.stripe.com/test_4gM8wOa6HdA3f1B6xn5ZC00"
   }
 };
+
+type Distributor = {
+  id: string;
+  name: string;
+  slug: string;
+  active: boolean;
+  created_at?: string;
+  website_url?: string;
+  brand_color?: string;
+  center_lat?: number;
+  center_lng?: number;
+  map_url?: string;
+  logo_url?: string;
+  phone?: string;
+};
+
+type Advertiser = {
+  id: string;
+  business_name: string;
+  category: string;
+  address: string;
+  active: boolean;
+  distributor_id?: string;
+  tier?: string;
+};
+
+type Subscriber = {
+  id: string;
+  email: string;
+  distributor_id?: string;
+  distributor_name?: string;
+  visit_count?: number;
+  first_seen?: string;
+  last_seen?: string;
+  created_at?: string;
+};
+
+type Section = "dashboard" | "distributors" | "advertisers" | "subscribers" | "alerts" | "onboard-ad" | "onboard-dis";
+
+type Alert = {
+  id: string;
+  title: string;
+  body?: string;
+  sponsor_name?: string;
+  sponsor_logo_url?: string;
+  start_date?: string;
+  end_date?: string;
+  scope?: string;
+  active?: boolean;
+  is_active?: boolean;
+  distributor_id?: string;
+};
+
+type StatsResponse = {
+  total_distributors: number;
+  active_distributors: number;
+  total_advertisers: number;
+  total_subscribers: number;
+  recent_subscribers: Array<{ email: string; distributor_id?: string; created_at?: string }>;
+};
+
+const ADVERTISER_CATEGORIES: { value: string; label: string }[] = [
+  { value: "dining", label: "Cafe & Patio" },
+  { value: "parks", label: "Parks & Fields" },
+  { value: "emergency_vet", label: "Emergency Vet (24/7)" },
+  { value: "veterinarian", label: "Veterinarian" },
+  { value: "groomer", label: "Groomers & Sitters" },
+  { value: "daycare", label: "Doggie Daycare" },
+];
 
 function getToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -115,75 +184,6 @@ function asArray<T>(v: any): T[] {
   ) as T[];
 }
 
-type Distributor = {
-  id: string;
-  name: string;
-  slug: string;
-  active: boolean;
-  created_at?: string;
-  website_url?: string;
-  brand_color?: string;
-  center_lat?: number;
-  center_lng?: number;
-  map_url?: string;
-  logo_url?: string;
-  phone?: string;
-};
-
-type Advertiser = {
-  id: string;
-  business_name: string;
-  category: string;
-  address: string;
-  active: boolean;
-  distributor_id?: string;
-  tier?: string;
-};
-
-type Subscriber = {
-  id: string;
-  email: string;
-  distributor_id?: string;
-  distributor_name?: string;
-  visit_count?: number;
-  first_seen?: string;
-  last_seen?: string;
-  created_at?: string;
-};
-
-type Section = "dashboard" | "distributors" | "advertisers" | "subscribers" | "alerts" | "onboard-ad" | "onboard-dis";
-
-type Alert = {
-  id: string;
-  title: string;
-  body?: string;
-  sponsor_name?: string;
-  sponsor_logo_url?: string;
-  start_date?: string;
-  end_date?: string;
-  scope?: string;
-  active?: boolean;
-  is_active?: boolean;
-  distributor_id?: string;
-};
-
-type StatsResponse = {
-  total_distributors: number;
-  active_distributors: number;
-  total_advertisers: number;
-  total_subscribers: number;
-  recent_subscribers: Array<{ email: string; distributor_id?: string; created_at?: string }>;
-};
-
-const ADVERTISER_CATEGORIES: { value: string; label: string }[] = [
-  { value: "dining", label: "Cafe & Patio" },
-  { value: "parks", label: "Parks & Fields" },
-  { value: "emergency_vet", label: "Emergency Vet (24/7)" },
-  { value: "veterinarian", label: "Veterinarian" },
-  { value: "groomer", label: "Groomers & Sitters" },
-  { value: "daycare", label: "Doggie Daycare" },
-];
-
 export default function AdminApp() {
   const [authed, setAuthed] = useState(false);
   const [checked, setChecked] = useState(false);
@@ -253,7 +253,7 @@ function LoginForm({ onSuccess }: { onSuccess: () => void }) {
           >
             <Bone className="h-6 w-6 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">FurStops Admin</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Baby Steps Admin</h1>
           <p className="mt-1 text-sm text-gray-500">Sign in to continue</p>
         </div>
         <div className="space-y-3">
@@ -322,7 +322,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       >
         <div className="flex items-center gap-2 px-6 py-5 border-b border-white/10">
           <Bone className="h-6 w-6" />
-          <span className="text-lg font-bold tracking-tight">FurStops</span>
+          <span className="text-lg font-bold tracking-tight">Baby Steps</span>
         </div>
         <nav className="flex-1 px-3 py-4 space-y-1">
           {nav.map((n) => (
@@ -956,7 +956,7 @@ function DistributorsSection() {
                   <Badge active={!!d.active} />
                 </td>
                 <td className="px-4 py-3 text-gray-600">{formatDate(d.created_at)}</td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-3 font-medium">
                   <div className="flex justify-end gap-2">
                     <button onClick={() => setEditing(d)} className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-50">✏️ Edit</button>
                     <button disabled={busyId === d.id} onClick={() => toggle(d)} className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-50 disabled:opacity-50">{d.active ? "Deactivate" : "Activate"}</button>
@@ -1087,6 +1087,7 @@ function AdvertisersSection() {
   const [showForm, useStateForm] = useState(false);
   const [editing, setEditing] = useState<Advertiser | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [selectedDistributor, setSelectedDistributor] = useState<string>("");
 
   const distMap = new Map<string, Distributor>();
   distributors.forEach((d) => distMap.set(String(d.id), d));
@@ -1098,6 +1099,7 @@ function AdvertisersSection() {
     else if (a.distributor_id) ids.push(String(a.distributor_id));
     return ids.map((id) => distMap.get(id)).filter(Boolean) as Distributor[];
   };
+
   const toggle = async (a: Advertiser) => {
     setBusyId(a.id);
     try {
@@ -1107,10 +1109,38 @@ function AdvertisersSection() {
       setBusyId(null);
     }
   };
+
+  const displayedAdvertisers = useMemo(() => {
+    if (!selectedDistributor) return advertisers;
+    if (selectedDistributor === "unassigned") {
+      return advertisers.filter(a => !a.distributor_id);
+    }
+    return advertisers.filter(a => a.distributor_id === selectedDistributor);
+  }, [advertisers, selectedDistributor]);
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-500">{advertisers.length} total</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <p className="text-sm text-gray-500">
+            <span className="font-semibold">{displayedAdvertisers.length}</span> displayed ({advertisers.length} total)
+          </p>
+          
+          <select
+            value={selectedDistributor}
+            onChange={(e) => setSelectedDistributor(e.target.value)}
+            className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm shadow-sm focus:border-emerald-500 focus:outline-none"
+          >
+            <option value="">All Distributors</option>
+            <option value="unassigned">Unassigned / Root Layout</option>
+            {distributors.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name} ({d.slug})
+              </option>
+            ))}
+          </select>
+        </div>
+
         <button
           onClick={() => useStateForm(true)}
           className="rounded-md px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
@@ -1141,12 +1171,12 @@ function AdvertisersSection() {
                 <td colSpan={7} className="px-4 py-6 text-center text-gray-500">Loading…</td>
               </tr>
             )}
-            {!loading && advertisers.length === 0 && (
+            {!loading && displayedAdvertisers.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-gray-500">No active advertisers are assigned.</td>
+                <td colSpan={7} className="px-4 py-6 text-center text-gray-500">No active advertisers match selection.</td>
               </tr>
             )}
-            {advertisers.map((a) => {
+            {displayedAdvertisers.map((a) => {
               const advDists = getDistributorsFor(a);
               const distributorSlug = (a as any).distributor_slug || advDists.find((d) => d.slug)?.slug || "";
               
@@ -1176,7 +1206,7 @@ function AdvertisersSection() {
                       <span className="text-gray-400 italic">—</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-gray-600">
+                  <td className="px-4 py-3 text-gray-600 font-medium">
                     {(a as any).distributor_name && (a as any).distributor_name !== "Unassigned" ? (
                       (a as any).distributor_name
                     ) : advDists.length > 0 ? (
@@ -1263,6 +1293,7 @@ function EditDistributorForm({
       if (form.address !== initial.address) body.address_string = form.address;
       if (form.website_url !== initial.website_url) body.website_url = form.website_url;
       if (form.logo_url !== initial.logo_url) body.logo_url = form.logo_url;
+      if (form.brand_color !== initial.brand_color) body.brand_color = form.brand_color;
       if (form.phone !== initial.phone) body.phone = form.phone; 
       if (form.is_active !== initial.is_active) body.is_active = form.is_active;
 
@@ -1399,7 +1430,7 @@ function AdvertiserForm({
 
       const distributorChanged = !isEdit || form.distributor_id !== (initial as any).distributor_id;
       if (savedId && distributorChanged && form.distributor_id) {
-        await authFetch(`/maps/assignments`, {
+        const ar = await authFetch(`/maps/assignments`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1407,6 +1438,7 @@ function AdvertiserForm({
             advertiser_id: savedId,
           }),
         });
+        if (!ar.ok) throw new Error(`Assignment failed: ${ar.status}`);
       }
 
       onSaved();
