@@ -224,7 +224,7 @@ export default function TenantMapPortal({ params }: PageProps) {
                 id: String(props?.id ?? i),
                 cat,
                 name: props?.business_name || "Unnamed",
-                distance: "Tap for directions",
+                distance: "", // 💡 Fixed: Removed default "Tap for directions" string placeholder
                 tip: props?.insider_tip || "",
                 tip_image_url: props?.tip_image_url || props?.promo_image_url || undefined,
                 lng: coords[0],
@@ -510,7 +510,14 @@ export default function TenantMapPortal({ params }: PageProps) {
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: TEAL }}>{catMeta(selected.cat).label}</p>
                   <h2 className="mt-0.5 text-xl font-extrabold leading-tight text-slate-900">{selected.name}</h2>
-                  <p className="mt-1 flex items-center gap-1 text-[13px] font-medium text-slate-600"><MapPin className="h-3.5 w-3.5" />{selected.address ?? selected.distance}</p>
+                  
+                  {/* 💡 Fixed: Hide address/distance pin icon completely if neither exists */}
+                  {(selected.address || selected.distance) && (
+                    <p className="mt-1 flex items-center gap-1 text-[13px] font-medium text-slate-600">
+                      <MapPin className="h-3.5 w-3.5" />
+                      {selected.address || selected.distance}
+                    </p>
+                  )}
                   
                   {/* NEW: Display Website and Phone ONLY for Gold Tier Advertisers */}
                   {selected.tier === "gold" && (selected.website || selected.phone) && (
