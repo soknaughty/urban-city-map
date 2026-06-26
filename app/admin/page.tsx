@@ -770,7 +770,12 @@ function AlertRow({ a, onEdit }: { a: Alert; onEdit: () => void }) {
             Unsold Opportunity
           </span>
         )}
-        <button onClick={onEdit} className="text-xs text-gray-500 hover:text-gray-900 font-semibold underline">
+        {/* 💡 FIXED: Added type="button" and stopPropagation to force the click to register */}
+        <button 
+          type="button" 
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(); }} 
+          className="text-xs text-gray-500 hover:text-gray-900 font-semibold underline"
+        >
           Edit
         </button>
       </div>
@@ -806,13 +811,14 @@ function formatDate(d?: string) {
 
 function DashboardSection() {
   const { data, loading, error } = useFetch<StatsResponse>("/stats/");
-  const { data: upcomingData, loading: upcomingLoading, error: upcomingError, refetch: refetchUpcoming } = useFetch<any>("/alerts/upcoming"); [cite: 382]
-  const distQ = useFetch<any>("/distributors/"); [cite: 382]
-  const distributors = asArray<Distributor>(distQ.data); [cite: 383]
-  const [editingAlert, setEditingAlert] = useState<Alert | null>(null); [cite: 383]
+  // 💡 FIXED: Revert from /alerts/upcoming back to /alerts/ to pull all data
+  const { data: alertsData, loading: alertsLoading, error: alertsError, refetch: refetchAlerts } = useFetch<any>("/alerts/");
+  const distQ = useFetch<any>("/distributors/");
+  const distributors = asArray<Distributor>(distQ.data);
+  const [editingAlert, setEditingAlert] = useState<Alert | null>(null);
   const [showAll, setShowAll] = useState(false);
 
-  const upcoming = asArray<Alert>(upcomingData)
+  const upcoming = asArray<Alert>(alertsData)
     .slice()
     .sort((a, b) => {
       const ad = a.start_date ? new Date(a.start_date).getTime() : 0;
@@ -820,12 +826,14 @@ function DashboardSection() {
       return ad - bd;
     });
   const now = Date.now();
-  const in30Days = now + 30 * 24 * 60 * 60 * 1000;
+  
+  // 💡 FIXED: Filter out expired alerts by end_date, so active past-start alerts remain visible
   const next30 = upcoming.filter((a) => {
-    const t = a.start_date ? new Date(a.start_date).getTime() : 0;
-    return t >= now - 24 * 60 * 60 * 1000 && t <= in30Days;
+    const endT = a.end_date ? new Date(a.end_date).getTime() : Infinity;
+    return endT >= now - (24 * 60 * 60 * 1000);
   });
-  const preview = upcoming.slice(0, 3);
+  // 💡 FIXED: Slice from the filtered next30 list, not the raw upcoming list
+  const preview = next30.slice(0, 3);
 
   return (
     <div className="space-y-6">
@@ -842,15 +850,15 @@ function DashboardSection() {
         <div className="border-b border-gray-200 px-5 py-3">
           <h2 className="text-sm font-semibold text-gray-900">Upcoming Alerts Calendar</h2>
         </div>
-        {upcomingError && (
-          <div className="border-b border-red-100 bg-red-50 px-5 py-3 text-sm text-red-700">{upcomingError}</div>
+        {alertsError && (
+          <div className="border-b border-red-100 bg-red-50 px-5 py-3 text-sm text-red-700">{alertsError}</div>
         )}
         <ul className="divide-y divide-gray-100">
-          {upcomingLoading && <li className="px-5 py-4 text-sm text-gray-500">Loading…</li>}
-          {!upcomingLoading && preview.length === 0 && (
+          {alertsLoading && <li className="px-5 py-4 text-sm text-gray-500">Loading…</li>}
+          {!alertsLoading && preview.length === 0 && (
             <li className="px-5 py-4 text-sm text-gray-500">No upcoming alerts.</li>
           )}
-          {preview.map((a) => <AlertRow key={a.id} a={a} onEdit={() => setEditingAlert(a)} />)} [cite: 384]
+          {preview.map((a) => <AlertRow key={a.id} a={a} onEdit={() => setEditingAlert(a)} />)}
         </ul>
         <div className="border-t border-gray-200 px-5 py-3">
           <button
@@ -887,23 +895,23 @@ function DashboardSection() {
               {next30.length === 0 && (
                 <li className="px-5 py-4 text-sm text-gray-500">No upcoming alerts in the next 30 days.</li>
               )}
-              {next30.map((a) => <AlertRow key={a.id} a={a} onEdit={() => setEditingAlert(a)} />)} [cite: 384]
+              {next30.map((a) => <AlertRow key={a.id} a={a} onEdit={() => setEditingAlert(a)} />)}
             </ul>
           </div>
         </div>
       )}
 
-      {editingAlert && ( [cite: 385]
-        <EditAlertForm [cite: 385]
-          alert={editingAlert} [cite: 385]
-          distributors={distributors} [cite: 385]
-          onClose={() => setEditingAlert(null)} [cite: 385]
-          onSaved={() => { [cite: 385]
-            setEditingAlert(null); [cite: 385]
-            refetchUpcoming(); [cite: 385]
-          }} [cite: 385]
-        /> [cite: 385]
-      )} [cite: 385]
+      {editingAlert && (
+        <EditAlertForm
+          alert={editingAlert}
+          distributors={distributors}
+          onClose={() => setEditingAlert(null)}
+          onSaved={() => {
+            setEditingAlert(null);
+            refetchAlerts();
+          }}
+        />
+      )}
     </div>
   );
 }
