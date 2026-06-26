@@ -15,7 +15,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 
 const TOKEN_KEY = "urbandog_admin_token";
 const API_BASE = "https://urbandog-production.up.railway.app/api/v1";
-
 const STRIPE_LINKS: Record<string, Record<string, string>> = {
   "ad_cfs_z": {
     usd: "https://buy.stripe.com/test_14A8wO4Mn1RlcTtaND5ZC03",
@@ -116,7 +115,7 @@ function asArray<T>(v: any): T[] {
   else if (v && Array.isArray(v.items)) arr = v.items;
   else if (v && Array.isArray(v.results)) arr = v.results;
   else if (v && Array.isArray(v.data)) arr = v.data;
-  else if (v && Array.isArray(v.subscribers)) arr = v.subscribers; // 💡 Fixed: Unpack nested subscribers envelope
+  else if (v && Array.isArray(v.subscribers)) arr = v.subscribers;
   return arr.map((it) =>
     it && typeof it === "object" && "is_active" in it && !("active" in it)
       ? { ...it, active: (it as any).is_active }
@@ -463,7 +462,6 @@ function OnboardAdSection() {
       window.open(url.toString(), '_blank');
       setSuccess(true);
       setLoading(false);
-      
     } catch (err: any) {
       setError(err.message || "An unexpected processing fault occurred.");
       setLoading(false);
@@ -572,7 +570,6 @@ function OnboardDisSection() {
     currency: "usd",
     phone: "", 
   });
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successUrl, setSuccessUrl] = useState<string | null>(null);
@@ -596,25 +593,21 @@ function OnboardDisSection() {
         logo_url: form.logo_url || undefined,
         phone: form.phone || undefined, 
       };
-
       const res = await authFetch("/distributors/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(distributorPayload),
       });
-
       if (!res.ok) throw new Error(`Distributor save processing failed with code: ${res.status}`);
       const savedDistributor = await res.json();
       
       const targetUrl = STRIPE_LINKS["furstops_license"]?.[form.currency];
-      
       if (!targetUrl) {
          throw new Error("No secure checkout routing configured for this currency.");
       }
       
       const url = new URL(targetUrl);
       url.searchParams.set("client_reference_id", savedDistributor.id);
-      
       window.open(url.toString(), '_blank');
       
       const mapDomain = typeof window !== "undefined" && window.location.hostname.includes("localhost")
@@ -813,8 +806,12 @@ function formatDate(d?: string) {
 
 function DashboardSection() {
   const { data, loading, error } = useFetch<StatsResponse>("/stats/");
-  const { data: upcomingData, loading: upcomingLoading, error: upcomingError } = useFetch<any>("/alerts/upcoming");
+  const { data: upcomingData, loading: upcomingLoading, error: upcomingError, refetch: refetchUpcoming } = useFetch<any>("/alerts/upcoming"); [cite: 382]
+  const distQ = useFetch<any>("/distributors/"); [cite: 382]
+  const distributors = asArray<Distributor>(distQ.data); [cite: 383]
+  const [editingAlert, setEditingAlert] = useState<Alert | null>(null); [cite: 383]
   const [showAll, setShowAll] = useState(false);
+
   const upcoming = asArray<Alert>(upcomingData)
     .slice()
     .sort((a, b) => {
@@ -853,7 +850,7 @@ function DashboardSection() {
           {!upcomingLoading && preview.length === 0 && (
             <li className="px-5 py-4 text-sm text-gray-500">No upcoming alerts.</li>
           )}
-          {preview.map((a) => <AlertRow key={a.id} a={a} onEdit={() => {}} />)}
+          {preview.map((a) => <AlertRow key={a.id} a={a} onEdit={() => setEditingAlert(a)} />)} [cite: 384]
         </ul>
         <div className="border-t border-gray-200 px-5 py-3">
           <button
@@ -890,11 +887,23 @@ function DashboardSection() {
               {next30.length === 0 && (
                 <li className="px-5 py-4 text-sm text-gray-500">No upcoming alerts in the next 30 days.</li>
               )}
-              {next30.map((a) => <AlertRow key={a.id} a={a} onEdit={() => {}} />)}
+              {next30.map((a) => <AlertRow key={a.id} a={a} onEdit={() => setEditingAlert(a)} />)} [cite: 384]
             </ul>
           </div>
         </div>
       )}
+
+      {editingAlert && ( [cite: 385]
+        <EditAlertForm [cite: 385]
+          alert={editingAlert} [cite: 385]
+          distributors={distributors} [cite: 385]
+          onClose={() => setEditingAlert(null)} [cite: 385]
+          onSaved={() => { [cite: 385]
+            setEditingAlert(null); [cite: 385]
+            refetchUpcoming(); [cite: 385]
+          }} [cite: 385]
+        /> [cite: 385]
+      )} [cite: 385]
     </div>
   );
 }
@@ -934,7 +943,6 @@ function DistributorsSection() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  // Real-time local filtering for Distributors search bar
   const filteredDistributors = useMemo(() => {
     if (!searchQuery.trim()) return distributors;
     const query = searchQuery.toLowerCase().trim();
@@ -1006,19 +1014,16 @@ function DistributorsSection() {
               const status = String(anyD.health_status || "").toLowerCase();
               const dotColor = status === "green" ? "#16a34a" : status === "yellow" ? "#eab308" : status === "red" ? "#dc2626" : "#d1d5db";
               const slug = anyD.slug;
-              
               const subUrl = slug
                 ? typeof window !== "undefined" && window.location.hostname.includes("localhost")
                   ? `http://${slug}.localhost:3000`
                   : `https://${slug}.furstops.com`
                 : "";
-
               const mapHref = slug
                 ? typeof window !== "undefined" && window.location.hostname.includes("localhost")
                   ? `http://${slug}.localhost:3000?admin=1`
                   : `https://${slug}.furstops.com?admin=1`
                 : "";
-
               return (
               <tr key={d.id}>
                 <td className="px-4 py-3 font-medium text-gray-900">{d.name}</td>
@@ -1058,7 +1063,7 @@ function DistributorsSection() {
                 <td className="px-4 py-3 text-gray-600">{formatDate(d.created_at)}</td>
                 <td className="px-4 py-3">
                   <div className="flex justify-end gap-2">
-                    <button onClick={() => setEditing(d)} className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-semibold hover:bg-gray-50 border-gray-300 text-slate-700 bg-white px-2.5 py-1.5 rounded transition-all">✏️ Edit</button>
+                    <button onClick={() => setEditing(d)} className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-semibold hover:bg-gray-50 text-slate-700 bg-white transition-all">✏️ Edit</button>
                     <button disabled={busyId === d.id} onClick={() => toggle(d)} className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-50 transition-all">{d.active ? "Deactivate" : "Activate"}</button>
                     {mapHref ? (
                       <a href={mapHref} target="_blank" rel="noopener noreferrer" className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-semibold text-[#1B4332] bg-emerald-50 hover:bg-emerald-100 transition-all">View Map</a>
@@ -1103,7 +1108,6 @@ function DistributorForm({ onClose, onSaved }: { onClose: () => void; onSaved: (
   const slug = slugify(form.name);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -1117,8 +1121,7 @@ function DistributorForm({ onClose, onSaved }: { onClose: () => void; onSaved: (
       };
       if (form.website_url) body.website_url = form.website_url;
       if (form.logo_url) body.logo_url = form.logo_url;
-      if (form.phone) body.phone = form.phone; 
-      
+      if (form.phone) body.phone = form.phone;
       const r = await authFetch(`/distributors/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1132,7 +1135,6 @@ function DistributorForm({ onClose, onSaved }: { onClose: () => void; onSaved: (
       setSaving(false);
     }
   };
-
   return (
     <Modal title="Add Distributor" onClose={onClose}>
       <form onSubmit={submit} className="space-y-3">
@@ -1199,7 +1201,6 @@ function AdvertisersSection() {
     else if (a.distributor_id) ids.push(String(a.distributor_id));
     return ids.map((id) => distMap.get(id)).filter(Boolean) as Distributor[];
   };
-
   const toggle = async (a: Advertiser) => {
     setBusyId(a.id);
     try {
@@ -1209,8 +1210,6 @@ function AdvertisersSection() {
       setBusyId(null);
     }
   };
-
-  // Filter advertisers logically based on distributor selection dropdown
   const filteredAdvertisers = useMemo(() => {
     if (selectedDistributor === "") return advertisers;
     if (selectedDistributor === "unassigned") {
@@ -1282,7 +1281,6 @@ function AdvertisersSection() {
             {filteredAdvertisers.map((a) => {
               const advDists = getDistributorsFor(a);
               const distributorSlug = (a as any).distributor_slug || advDists.find((d) => d.slug)?.slug || "";
-              
               const mapHref = distributorSlug
                 ? typeof window !== "undefined" && window.location.hostname.includes("localhost")
                   ? `http://${distributorSlug}.localhost:3000?admin=1`
@@ -1397,7 +1395,7 @@ function EditDistributorForm({
       if (form.website_url !== initial.website_url) body.website_url = form.website_url;
       if (form.logo_url !== initial.logo_url) body.logo_url = form.logo_url;
       if (form.brand_color !== initial.brand_color) body.brand_color_hex = form.brand_color;
-      if (form.phone !== initial.phone) body.phone = form.phone; 
+      if (form.phone !== initial.phone) body.phone = form.phone;
       if (form.is_active !== initial.is_active) body.is_active = form.is_active;
 
       if (Object.keys(body).length === 0) {
@@ -1483,6 +1481,7 @@ function AdvertiserForm({
   const [form, setForm] = useState(initial);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -1553,6 +1552,7 @@ function AdvertiserForm({
       setSaving(false);
     }
   };
+
   return (
     <Modal title={isEdit ? "Edit Advertiser Settings" : "Deploy Advertiser Instance"} onClose={onClose}>
       <form onSubmit={submit} className="space-y-3">
