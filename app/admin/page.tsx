@@ -157,6 +157,7 @@ type Subscriber = {
   first_seen?: string;
   last_seen?: string;
   created_at?: string;
+  is_archived?: boolean; // 💡 ADDED THIS LINE 
 };
 
 type Section = "dashboard" | "distributors" | "advertisers" | "subscribers" | "alerts" | "onboard-ad" | "onboard-dis";
@@ -770,10 +771,10 @@ function AlertRow({ a, onEdit }: { a: Alert; onEdit: () => void }) {
             Unsold Opportunity
           </span>
         )}
-        {/* 💡 FIXED: Added type="button" and stopPropagation to force the click to register */}
+        {/* 💡 FIXED: Added type="button" and stopPropagation to force the click to register [cite: 1310] */}
         <button 
           type="button" 
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(); }} 
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(); }} // [cite: 1310, 1311]
           className="text-xs text-gray-500 hover:text-gray-900 font-semibold underline"
         >
           Edit
@@ -811,8 +812,8 @@ function formatDate(d?: string) {
 
 function DashboardSection() {
   const { data, loading, error } = useFetch<StatsResponse>("/stats/");
-  // 💡 FIXED: Revert from /alerts/upcoming back to /alerts/ to pull all data
-  const { data: alertsData, loading: alertsLoading, error: alertsError, refetch: refetchAlerts } = useFetch<any>("/alerts/");
+  // 💡 FIXED: Revert from /alerts/upcoming back to /alerts/ to pull all data [cite: 1317]
+  const { data: alertsData, loading: alertsLoading, error: alertsError, refetch: refetchAlerts } = useFetch<any>("/alerts/"); // [cite: 1317]
   const distQ = useFetch<any>("/distributors/");
   const distributors = asArray<Distributor>(distQ.data);
   const [editingAlert, setEditingAlert] = useState<Alert | null>(null);
@@ -827,13 +828,13 @@ function DashboardSection() {
     });
   const now = Date.now();
   
-  // 💡 FIXED: Filter out expired alerts by end_date, so active past-start alerts remain visible
+  // 💡 FIXED: Filter out expired alerts by end_date, so active past-start alerts remain visible [cite: 1320]
   const next30 = upcoming.filter((a) => {
-    const endT = a.end_date ? new Date(a.end_date).getTime() : Infinity;
-    return endT >= now - (24 * 60 * 60 * 1000);
+    const endT = a.end_date ? new Date(a.end_date).getTime() : Infinity; // [cite: 1320]
+    return endT >= now - (24 * 60 * 60 * 1000); // [cite: 1320]
   });
-  // 💡 FIXED: Slice from the filtered next30 list, not the raw upcoming list
-  const preview = next30.slice(0, 3);
+  // 💡 FIXED: Slice from the filtered next30 list, not the raw upcoming list [cite: 1321]
+  const preview = next30.slice(0, 3); // [cite: 1321]
 
   return (
     <div className="space-y-6">
@@ -908,7 +909,7 @@ function DashboardSection() {
           onClose={() => setEditingAlert(null)}
           onSaved={() => {
             setEditingAlert(null);
-            refetchAlerts();
+            refetchAlerts(); // [cite: 1331]
           }}
         />
       )}
@@ -1611,12 +1612,103 @@ function AdvertiserForm({
   );
 }
 
+// 💡 REPLACED COMPONENT: SubscribersSection fully updated with fixes [cite: 1151, 1152]
 function SubscribersSection() {
-  const { data: subsData, loading, error } = useFetch<any>("/subscribers/");
-  const subscribers = asArray<Subscriber>(subsData);
+  const { data: subsData, loading, error, refetch: refetchSubs } = useFetch<any>("/subscribers/"); // [cite: 1153]
+  const distQ = useFetch<any>("/distributors/"); // [cite: 1153]
+  
+  // 💡 FIXED: Map distributor IDs to Names so the column isn't blank [cite: 1154]
+  const distributors = asArray<Distributor>(distQ.data); // [cite: 1154]
+  const distMap = new Map<string, string>(); // [cite: 1155]
+  distributors.forEach((d) => distMap.set(String(d.id), d.name)); // [cite: 1155]
+
+  const allSubscribers = asArray<Subscriber>(subsData); // [cite: 1155]
+  // Filter out subscribers that have been soft-deleted [cite: 1156]
+  const subscribers = allSubscribers.filter(s => !s.is_archived); // [cite: 1156]
+  const [archiving, setArchiving] = useState<string | null>(null); // [cite: 1157]
+  const [massArchiving, setMassArchiving] = useState(false); // [cite: 1157]
+
+  // Individual Soft Delete [cite: 1158]
+  const handleArchive = async (id: string) => {
+    if (!confirm("Are you sure you want to remove this subscriber from the dashboard?")) return; // [cite: 1158]
+    setArchiving(id); // [cite: 1159]
+    try {
+      await authFetch(`/subscribers/${id}/archive`, { method: "PATCH" }); // [cite: 1159]
+      refetchSubs(); // [cite: 1159]
+    } catch (err) {
+      console.error("Failed to archive subscriber", err); // [cite: 1160]
+    } finally {
+      setArchiving(null); // [cite: 1161]
+    }
+  };
+
+  // Mass Soft Delete [cite: 1162]
+  const handleMassArchive = async () => {
+    if (!confirm(`Are you sure you want to remove ALL ${subscribers.length} currently displayed subscribers from the dashboard?`)) return; // [cite: 1162]
+    setMassArchiving(true); // [cite: 1163]
+    try {
+      // Loop through all currently visible subscribers and send the patch request [cite: 1163]
+      await Promise.all(
+        subscribers.map((s) => authFetch(`/subscribers/${s.id}/archive`, { method: "PATCH" })) // [cite: 1163]
+      );
+      refetchSubs(); // [cite: 1164]
+    } catch (err) {
+      console.error("Mass archive failed", err); // [cite: 1164]
+    } finally {
+      setMassArchiving(false); // [cite: 1165]
+    }
+  };
+
+  // CSV Export Logic [cite: 1166]
+  const handleExportCSV = () => {
+    if (subscribers.length === 0) return; // [cite: 1166]
+    const headers = ["Email", "Distributor", "Visit Count", "First Seen", "Last Seen"]; // [cite: 1167]
+    const rows = subscribers.map((s) => { // [cite: 1168]
+      const dName = s.distributor_name || (s.distributor_id ? distMap.get(s.distributor_id) : "") || "Unassigned"; // [cite: 1168]
+      return [
+        `"${s.email}"`,
+        `"${dName}"`,
+        s.visit_count ?? 0,
+        `"${s.first_seen || s.created_at || ""}"`,
+        `"${s.last_seen || ""}"`
+      ].join(",");
+    });
+    const csvContent = [headers.join(","), ...rows].join("\n"); // [cite: 1169]
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" }); // [cite: 1169]
+    const url = URL.createObjectURL(blob); // [cite: 1169]
+    const link = document.createElement("a"); // [cite: 1170]
+    link.setAttribute("href", url); // [cite: 1170]
+    link.setAttribute("download", `subscribers_export_${new Date().toISOString().split("T")[0]}.csv`); // [cite: 1170]
+    document.body.appendChild(link); // [cite: 1170]
+    link.click(); // [cite: 1170]
+    document.body.removeChild(link); // [cite: 1170]
+  };
 
   return (
     <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <p className="text-sm font-medium text-gray-700">
+          <span className="font-bold">{subscribers.length}</span> total subscribers
+        </p>
+        <div className="flex gap-2">
+          <button
+            onClick={handleMassArchive}
+            disabled={massArchiving || subscribers.length === 0}
+            className="rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50 transition-colors"
+          >
+            {massArchiving ? "Clearing..." : "Delete All Displayed"}
+          </button>
+          <button
+            onClick={handleExportCSV}
+            disabled={subscribers.length === 0}
+            className="rounded-md px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+            style={{ backgroundColor: "#1B4332" }}
+          >
+            Export to CSV Log
+          </button>
+        </div>
+      </div>
+
       {error && <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">{error}</div>}
 
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
@@ -1624,30 +1716,43 @@ function SubscribersSection() {
           <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
             <tr>
               <th className="px-4 py-3">Email</th>
-              <th className="px-4 py-3">Distributor Partner Map</th>
-              <th className="px-4 py-3">Visit Count</th>
-              <th className="px-4 py-3">First Registered</th>
+              <th className="px-4 py-3">Distributor</th>
+              <th className="px-4 py-3 text-center">Visit Count</th>
+              <th className="px-4 py-3">First Seen</th>
+              <th className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {loading && (
               <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-gray-500">Loading…</td>
+                <td colSpan={5} className="px-4 py-6 text-center text-gray-500">Loading…</td>
               </tr>
             )}
             {!loading && subscribers.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-gray-500">No subscriber data matching parameters.</td>
+                <td colSpan={5} className="px-4 py-6 text-center text-gray-500">No active subscriber data matching parameters.</td>
               </tr>
             )}
-            {subscribers.map((s, i) => (
-              <tr key={s.id || s.email + i} className="hover:bg-gray-50">
-                <td className="px-4 py-3 font-medium text-gray-900">{s.email}</td>
-                <td className="px-4 py-3 text-gray-600 font-mono text-xs">{s.distributor_name || s.distributor_id || "—"}</td>
-                <td className="px-4 py-3 text-gray-600">{s.visit_count ?? 1}</td>
-                <td className="px-4 py-3 text-gray-600">{formatDate(s.created_at)}</td>
-              </tr>
-            ))}
+            {subscribers.map((s, i) => {
+              const dName = s.distributor_name || (s.distributor_id ? distMap.get(s.distributor_id) : "") || "—"; // [cite: 1177, 1178]
+              return (
+                <tr key={s.id || s.email + i} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 font-medium text-gray-900">{s.email}</td>
+                  <td className="px-4 py-3 text-gray-600 font-mono text-xs">{dName}</td>
+                  <td className="px-4 py-3 text-gray-600 text-center">{s.visit_count ?? 0}</td>
+                  <td className="px-4 py-3 text-gray-600">{formatDate(s.first_seen || s.created_at)}</td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      onClick={() => handleArchive(s.id)}
+                      disabled={archiving === s.id}
+                      className="text-xs font-medium text-red-600 hover:text-red-800 disabled:opacity-50 transition-colors"
+                    >
+                      {archiving === s.id ? "..." : "Delete"}
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -1673,7 +1778,6 @@ function AlertsSection() {
       setBusyId(null);
     }
   };
-
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -1777,7 +1881,6 @@ function AlertForm({ distributors, onClose, onSaved }: { distributors: Distribut
   });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -1807,7 +1910,6 @@ function AlertForm({ distributors, onClose, onSaved }: { distributors: Distribut
       setSaving(false);
     }
   };
-
   return (
     <Modal title="Deploy Live Map Broadcast Banner Alert" onClose={onClose}>
       <form onSubmit={submit} className="space-y-3">
@@ -1877,7 +1979,6 @@ function EditAlertForm({ alert, distributors, onClose, onSaved }: { alert: Alert
   });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -1907,7 +2008,6 @@ function EditAlertForm({ alert, distributors, onClose, onSaved }: { alert: Alert
       setSaving(false);
     }
   };
-
   return (
     <Modal title="Edit Broadcast Banner Alert" onClose={onClose}>
       <form onSubmit={submit} className="space-y-3">
