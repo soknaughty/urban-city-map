@@ -77,11 +77,11 @@ export default function TenantMapPortal({ params }: PageProps) {
     distributor_id?: string;
     brand_color_hex?: string | null;
   }>({});
-  
   const brandColor = metadata.brand_color_hex || FOREST;
   const distributorName = metadata.distributor_name || "Barks & Bones";
   const [isMounted, setIsMounted] = useState(false);
   const [needsEmail, setNeedsEmail] = useState(false);
+  const [mapLoaded, setMapLoaded] = useState(false); // 💡 TARGET A: Added missing map load tracker state hook
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -160,7 +160,6 @@ export default function TenantMapPortal({ params }: PageProps) {
   }, [metadata.distributor_id]);
 
   const emailValid = email.includes("@") && email.includes(".");
-
   const submitGate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!emailValid || submitting || !metadata.distributor_id) return;
@@ -219,12 +218,11 @@ export default function TenantMapPortal({ params }: PageProps) {
               const props = f?.properties ?? {};
               const cat = API_TO_CAT[props?.category];
               if (!cat || !Array.isArray(coords) || typeof coords[0] !== "number" || typeof coords[1] !== "number") return null;
-              
               return {
                 id: String(props?.id ?? i),
                 cat,
                 name: props?.business_name || "Unnamed",
-                distance: "", // 💡 Fixed: Removed default "Tap for directions" string placeholder
+                distance: "", 
                 tip: props?.insider_tip || "",
                 tip_image_url: props?.tip_image_url || props?.promo_image_url || undefined,
                 lng: coords[0],
@@ -251,6 +249,7 @@ export default function TenantMapPortal({ params }: PageProps) {
     };
   }, [slug, isRoot]);
 
+  // 💡 TARGET C: Added setMapLoaded event framework within Mapbox lifecycle initialization hooks
   useEffect(() => {
     if (needsEmail) return;
     if (!mapContainer.current || mapRef.current || !center) return;
@@ -269,7 +268,10 @@ export default function TenantMapPortal({ params }: PageProps) {
       zoom: 15.5,
     });
     mapRef.current = map;
-    map.on("load", () => map.resize());
+    map.on("load", () => {
+      map.resize();
+      setMapLoaded(true); // Signal tracking flags that context layers are completely valid
+    });
   }, [center, needsEmail]);
 
   useEffect(() => {
@@ -292,7 +294,7 @@ export default function TenantMapPortal({ params }: PageProps) {
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
+    if (!map || !mapLoaded) return; // Halt element updates gracefully if runtime layers are incomplete
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
 
@@ -350,12 +352,14 @@ export default function TenantMapPortal({ params }: PageProps) {
         .addTo(map);
       markersRef.current.push(marker);
     });
-  }, [visible, center, isRoot, distributorName, brandColor]);
+  // 💡 TARGET D: Added mapLoaded to structural reactive dependency layout bounds safely 
+  }, [visible, center, isRoot, distributorName, brandColor, mapLoaded]);
 
+  // 💡 TARGET B: Fixed Google Maps intent string interpolation typo template bug
   const openDirections = () => {
     if (!selected) return;
     window.open(
-      `https://www.google.com/maps/search/?api=1&query=${selected.lat},${selected.lng}`,
+      `https://www.google.com/maps/dir/?api=1&destination=${selected.lat},${selected.lng}`,
       "_blank",
       "noopener,noreferrer"
     );
@@ -510,16 +514,12 @@ export default function TenantMapPortal({ params }: PageProps) {
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: TEAL }}>{catMeta(selected.cat).label}</p>
                   <h2 className="mt-0.5 text-xl font-extrabold leading-tight text-slate-900">{selected.name}</h2>
-                  
-                  {/* 💡 Fixed: Hide address/distance pin icon completely if neither exists */}
                   {(selected.address || selected.distance) && (
                     <p className="mt-1 flex items-center gap-1 text-[13px] font-medium text-slate-600">
                       <MapPin className="h-3.5 w-3.5" />
                       {selected.address || selected.distance}
                     </p>
                   )}
-                  
-                  {/* NEW: Display Website and Phone ONLY for Gold Tier Advertisers */}
                   {selected.tier === "gold" && (selected.website || selected.phone) && (
                     <div className="mt-2.5 flex flex-wrap gap-2">
                       {selected.website && (
@@ -534,7 +534,6 @@ export default function TenantMapPortal({ params }: PageProps) {
                       )}
                     </div>
                   )}
-
                 </div>
                 <button onClick={() => setSelected(null)} className="rounded-full p-1.5 text-slate-500 hover:bg-slate-100" aria-label="Close"><X className="h-5 w-5" /></button>
               </div>
