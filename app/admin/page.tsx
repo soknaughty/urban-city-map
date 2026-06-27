@@ -157,10 +157,11 @@ type Subscriber = {
   first_seen?: string;
   last_seen?: string;
   created_at?: string;
-  is_archived?: boolean; // 💡 ADDED THIS LINE 
+  is_archived?: boolean;
 };
 
-type Section = "dashboard" | "distributors" | "advertisers" | "subscribers" | "alerts" | "onboard-ad" | "onboard-dis";
+// 💡 TARGET A: Added "security" section to type layout boundary [cite: 1849]
+type Section = "dashboard" | "distributors" | "advertisers" | "subscribers" | "alerts" | "onboard-ad" | "onboard-dis" | "security";
 
 type Alert = {
   id: string;
@@ -313,6 +314,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [section, setSection] = useState<Section>("dashboard");
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  // 💡 TARGET B: Appended Security element to the sidebar link mapper navigation configuration array [cite: 1850]
   const nav: { key: Section; label: string; icon: string }[] = [
     { key: "dashboard", label: "Dashboard", icon: "📊" },
     { key: "distributors", label: "Distributors", icon: "🏪" },
@@ -321,6 +323,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     { key: "alerts", label: "Alerts", icon: "🔔" },
     { key: "onboard-ad", label: "Onboard - Ad", icon: "📝" },
     { key: "onboard-dis", label: "Onboard - Dis", icon: "📋" },
+    { key: "security", label: "Security", icon: "🔒" },
   ];
 
   return (
@@ -371,12 +374,13 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             >
               ☰
             </button>
-            <h1 className="text-xl font-semibold md:text-2xl">
+            <h1 className="text-xl font-semibold md:text-2xl capitalize">
               {section === "onboard-ad" ? "Onboard - Ad" : section === "onboard-dis" ? "Onboard - Dis" : section}
             </h1>
           </div>
         </header>
         <div className="p-4 md:p-8">
+          {/* 💡 TARGET C: Render the dynamic Security view controller container block directly inside main view context [cite: 1851] */}
           {section === "dashboard" && <DashboardSection />}
           {section === "distributors" && <DistributorsSection />}
           {section === "advertisers" && <AdvertisersSection />}
@@ -384,6 +388,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           {section === "alerts" && <AlertsSection />}
           {section === "onboard-ad" && <OnboardAdSection />}
           {section === "onboard-dis" && <OnboardDisSection />}
+          {section === "security" && <SecuritySection />}
         </div>
       </main>
     </div>
@@ -554,7 +559,7 @@ function OnboardAdSection() {
         </div>
 
         <button type="submit" disabled={loading} className="w-full py-3 text-white font-bold rounded-lg transition-all hover:opacity-90 disabled:opacity-50 shadow-md" style={{ backgroundColor: "#1B4332" }}>
-          {loading ? "Forwarding to Stripe Payment Desk..." : "Deploy Advertiser Account Structure"}
+          "Forwarding to Stripe Payment Desk..." : "Deploy Advertiser Account Structure"
         </button>
       </form>
     </div>
@@ -771,10 +776,9 @@ function AlertRow({ a, onEdit }: { a: Alert; onEdit: () => void }) {
             Unsold Opportunity
           </span>
         )}
-        {/* 💡 FIXED: Added type="button" and stopPropagation to force the click to register [cite: 1310] */}
         <button 
           type="button" 
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(); }} // [cite: 1310, 1311]
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(); }}
           className="text-xs text-gray-500 hover:text-gray-900 font-semibold underline"
         >
           Edit
@@ -812,8 +816,7 @@ function formatDate(d?: string) {
 
 function DashboardSection() {
   const { data, loading, error } = useFetch<StatsResponse>("/stats/");
-  // 💡 FIXED: Revert from /alerts/upcoming back to /alerts/ to pull all data [cite: 1317]
-  const { data: alertsData, loading: alertsLoading, error: alertsError, refetch: refetchAlerts } = useFetch<any>("/alerts/"); // [cite: 1317]
+  const { data: alertsData, loading: alertsLoading, error: alertsError, refetch: refetchAlerts } = useFetch<any>("/alerts/");
   const distQ = useFetch<any>("/distributors/");
   const distributors = asArray<Distributor>(distQ.data);
   const [editingAlert, setEditingAlert] = useState<Alert | null>(null);
@@ -828,13 +831,11 @@ function DashboardSection() {
     });
   const now = Date.now();
   
-  // 💡 FIXED: Filter out expired alerts by end_date, so active past-start alerts remain visible [cite: 1320]
   const next30 = upcoming.filter((a) => {
-    const endT = a.end_date ? new Date(a.end_date).getTime() : Infinity; // [cite: 1320]
-    return endT >= now - (24 * 60 * 60 * 1000); // [cite: 1320]
+    const endT = a.end_date ? new Date(a.end_date).getTime() : Infinity;
+    return endT >= now - (24 * 60 * 60 * 1000);
   });
-  // 💡 FIXED: Slice from the filtered next30 list, not the raw upcoming list [cite: 1321]
-  const preview = next30.slice(0, 3); // [cite: 1321]
+  const preview = next30.slice(0, 3);
 
   return (
     <div className="space-y-6">
@@ -864,7 +865,7 @@ function DashboardSection() {
         <div className="border-t border-gray-200 px-5 py-3">
           <button
             type="button"
-            onClick={() => setShowAll(true)}
+            onClick={() => { setShowAll(true); }}
             className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
           >
             View All
@@ -909,7 +910,7 @@ function DashboardSection() {
           onClose={() => setEditingAlert(null)}
           onSaved={() => {
             setEditingAlert(null);
-            refetchAlerts(); // [cite: 1331]
+            refetchAlerts();
           }}
         />
       )}
@@ -1612,59 +1613,52 @@ function AdvertiserForm({
   );
 }
 
-// 💡 REPLACED COMPONENT: SubscribersSection fully updated with fixes [cite: 1151, 1152]
 function SubscribersSection() {
-  const { data: subsData, loading, error, refetch: refetchSubs } = useFetch<any>("/subscribers/"); // [cite: 1153]
-  const distQ = useFetch<any>("/distributors/"); // [cite: 1153]
+  const { data: subsData, loading, error, refetch: refetchSubs } = useFetch<any>("/subscribers/");
+  const distQ = useFetch<any>("/distributors/");
   
-  // 💡 FIXED: Map distributor IDs to Names so the column isn't blank [cite: 1154]
-  const distributors = asArray<Distributor>(distQ.data); // [cite: 1154]
-  const distMap = new Map<string, string>(); // [cite: 1155]
-  distributors.forEach((d) => distMap.set(String(d.id), d.name)); // [cite: 1155]
+  const distributors = asArray<Distributor>(distQ.data);
+  const distMap = new Map<string, string>();
+  distributors.forEach((d) => distMap.set(String(d.id), d.name));
 
-  const allSubscribers = asArray<Subscriber>(subsData); // [cite: 1155]
-  // Filter out subscribers that have been soft-deleted [cite: 1156]
-  const subscribers = allSubscribers.filter(s => !s.is_archived); // [cite: 1156]
-  const [archiving, setArchiving] = useState<string | null>(null); // [cite: 1157]
-  const [massArchiving, setMassArchiving] = useState(false); // [cite: 1157]
+  const allSubscribers = asArray<Subscriber>(subsData);
+  const subscribers = allSubscribers.filter(s => !s.is_archived);
+  const [archiving, setArchiving] = useState<string | null>(null);
+  const [massArchiving, setMassArchiving] = useState(false);
 
-  // Individual Soft Delete [cite: 1158]
   const handleArchive = async (id: string) => {
-    if (!confirm("Are you sure you want to remove this subscriber from the dashboard?")) return; // [cite: 1158]
-    setArchiving(id); // [cite: 1159]
+    if (!confirm("Are you sure you want to remove this subscriber from the dashboard?")) return;
+    setArchiving(id);
     try {
-      await authFetch(`/subscribers/${id}/archive`, { method: "PATCH" }); // [cite: 1159]
-      refetchSubs(); // [cite: 1159]
+      await authFetch(`/subscribers/${id}/archive`, { method: "PATCH" });
+      refetchSubs();
     } catch (err) {
-      console.error("Failed to archive subscriber", err); // [cite: 1160]
+      console.error("Failed to archive subscriber", err);
     } finally {
-      setArchiving(null); // [cite: 1161]
+      setArchiving(null);
     }
   };
 
-  // Mass Soft Delete [cite: 1162]
   const handleMassArchive = async () => {
-    if (!confirm(`Are you sure you want to remove ALL ${subscribers.length} currently displayed subscribers from the dashboard?`)) return; // [cite: 1162]
-    setMassArchiving(true); // [cite: 1163]
+    if (!confirm(`Are you sure you want to remove ALL ${subscribers.length} currently displayed subscribers from the dashboard?`)) return;
+    setMassArchiving(true);
     try {
-      // Loop through all currently visible subscribers and send the patch request [cite: 1163]
       await Promise.all(
-        subscribers.map((s) => authFetch(`/subscribers/${s.id}/archive`, { method: "PATCH" })) // [cite: 1163]
+        subscribers.map((s) => authFetch(`/subscribers/${s.id}/archive`, { method: "PATCH" }))
       );
-      refetchSubs(); // [cite: 1164]
+      refetchSubs();
     } catch (err) {
-      console.error("Mass archive failed", err); // [cite: 1164]
+      console.error("Mass archive failed", err);
     } finally {
-      setMassArchiving(false); // [cite: 1165]
+      setMassArchiving(false);
     }
   };
 
-  // CSV Export Logic [cite: 1166]
   const handleExportCSV = () => {
-    if (subscribers.length === 0) return; // [cite: 1166]
-    const headers = ["Email", "Distributor", "Visit Count", "First Seen", "Last Seen"]; // [cite: 1167]
-    const rows = subscribers.map((s) => { // [cite: 1168]
-      const dName = s.distributor_name || (s.distributor_id ? distMap.get(s.distributor_id) : "") || "Unassigned"; // [cite: 1168]
+    if (subscribers.length === 0) return;
+    const headers = ["Email", "Distributor", "Visit Count", "First Seen", "Last Seen"];
+    const rows = subscribers.map((s) => {
+      const dName = s.distributor_name || (s.distributor_id ? distMap.get(s.distributor_id) : "") || "Unassigned";
       return [
         `"${s.email}"`,
         `"${dName}"`,
@@ -1673,15 +1667,15 @@ function SubscribersSection() {
         `"${s.last_seen || ""}"`
       ].join(",");
     });
-    const csvContent = [headers.join(","), ...rows].join("\n"); // [cite: 1169]
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" }); // [cite: 1169]
-    const url = URL.createObjectURL(blob); // [cite: 1169]
-    const link = document.createElement("a"); // [cite: 1170]
-    link.setAttribute("href", url); // [cite: 1170]
-    link.setAttribute("download", `subscribers_export_${new Date().toISOString().split("T")[0]}.csv`); // [cite: 1170]
-    document.body.appendChild(link); // [cite: 1170]
-    link.click(); // [cite: 1170]
-    document.body.removeChild(link); // [cite: 1170]
+    const csvContent = [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `subscribers_export_${new Date().toISOString().split("T")[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
@@ -1734,7 +1728,7 @@ function SubscribersSection() {
               </tr>
             )}
             {subscribers.map((s, i) => {
-              const dName = s.distributor_name || (s.distributor_id ? distMap.get(s.distributor_id) : "") || "—"; // [cite: 1177, 1178]
+              const dName = s.distributor_name || (s.distributor_id ? distMap.get(s.distributor_id) : "") || "—";
               return (
                 <tr key={s.id || s.email + i} className="hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium text-gray-900">{s.email}</td>
@@ -1979,6 +1973,7 @@ function EditAlertForm({ alert, distributors, onClose, onSaved }: { alert: Alert
   });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -2008,6 +2003,7 @@ function EditAlertForm({ alert, distributors, onClose, onSaved }: { alert: Alert
       setSaving(false);
     }
   };
+
   return (
     <Modal title="Edit Broadcast Banner Alert" onClose={onClose}>
       <form onSubmit={submit} className="space-y-3">
@@ -2095,4 +2091,69 @@ function slugify(name: string) {
     .replace(/[^a-z0-9\s-]/g, "")
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-");
+}
+
+// 💡 TARGET D: Appended SecuritySection form component at the bottom of the dashboard layout file [cite: 1851]
+function SecuritySection() {
+  const [form, setForm] = useState({ old_password: "", new_password: "", confirm_password: "" });
+  const [loading, setLoading] = useState(false); // [cite: 1852]
+  const [msg, setMsg] = useState<{type: "error" | "success", text: string} | null>(null); // [cite: 1852]
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (form.new_password !== form.confirm_password) {
+      setMsg({ type: "error", text: "New passwords do not match." }); // [cite: 1854]
+      return; // [cite: 1855]
+    }
+    setLoading(true);
+    setMsg(null);
+    try {
+      const r = await authFetch("/auth/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ old_password: form.old_password, new_password: form.new_password })
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        throw new Error(err.detail || "Failed to change password."); // [cite: 1857]
+      }
+      setMsg({ type: "success", text: "Password successfully updated." }); // [cite: 1857]
+      setForm({ old_password: "", new_password: "", confirm_password: "" }); // [cite: 1858]
+    } catch (e: any) {
+      setMsg({ type: "error", text: e.message });
+    } finally {
+      setLoading(false); // [cite: 1859]
+    }
+  };
+
+  return (
+    <div className="max-w-md space-y-6">
+      <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex gap-3 items-start text-sm text-slate-700">
+        <div className="text-xl">🔒</div>
+        <div>
+          <p className="font-bold text-slate-900">Admin Security Settings</p>
+          <p className="mt-1">Update your dashboard login password.</p>
+        </div>
+      </div>
+      {msg && (
+        <div className={`p-3 rounded-lg text-sm border ${msg.type === "error" ? "bg-red-50 text-red-700 border-red-200" : "bg-green-50 text-green-800 border-green-200"}`}>
+          {msg.text}
+        </div>
+      )}
+      <form onSubmit={submit} className="border border-gray-200 bg-white rounded-xl p-6 space-y-4">
+        <Field label="Current Password">
+          <input type="password" required className={inputClass} value={form.old_password} onChange={e => setForm({...form, old_password: e.target.value})} />
+        </Field>
+        <Field label="New Password">
+          <input type="password" required className={inputClass} value={form.new_password} onChange={e => setForm({...form, new_password: e.target.value})} /> // [cite: 1862]
+        </Field>
+        <Field label="Confirm New Password">
+          <input type="password" required className={inputClass} value={form.confirm_password} onChange={e => setForm({...form, confirm_password: e.target.value})} />
+        </Field>
+        <button type="submit" disabled={loading} className="w-full py-3 text-white font-bold rounded-lg transition-all hover:opacity-90 disabled:opacity-50 shadow-md" style={{ backgroundColor: "#1B4332" }}>
+          {loading ? "Updating..." : "Update Password"} // [cite: 1863]
+        </button>
+      </form>
+    </div>
+  );
 }
