@@ -166,7 +166,7 @@ export default function TenantMapPortal({ params }: PageProps) {
     setSubmitting(true);
     setGateError(null);
     try {
-      const res = await fetch("https://urbandog-production.up.railway.app/api/v1/maps/subscribe", {
+      const res = await fetch("https://urbandog-production.up.railway.app/api/v1/subscribers/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
