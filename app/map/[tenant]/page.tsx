@@ -76,12 +76,14 @@ export default function TenantMapPortal({ params }: PageProps) {
     distributor_name?: string;
     distributor_id?: string;
     brand_color_hex?: string | null;
+    map_title?: string | null;          // 💡 Dynamic branding asset fields
+    promo_button_text?: string | null;  // 💡 Dynamic branding asset fields
   }>({});
   const brandColor = metadata.brand_color_hex || FOREST;
   const distributorName = metadata.distributor_name || "Barks & Bones";
   const [isMounted, setIsMounted] = useState(false);
   const [needsEmail, setNeedsEmail] = useState(false);
-  const [mapLoaded, setMapLoaded] = useState(false); // 💡 TARGET A: Added missing map load tracker state hook
+  const [mapLoaded, setMapLoaded] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -204,6 +206,8 @@ export default function TenantMapPortal({ params }: PageProps) {
           distributor_name: data?.distributor_name ?? data?.metadata?.distributor_name,
           distributor_id: data?.distributor_id ?? data?.metadata?.distributor_id,
           brand_color_hex: data?.brand_color_hex ?? data?.metadata?.brand_color_hex ?? null,
+          map_title: data?.map_title ?? data?.metadata?.map_title ?? null,                    // 💡 Map metadata hooks
+          promo_button_text: data?.promo_button_text ?? data?.metadata?.promo_button_text ?? null, // 💡 Map metadata hooks
         });
         const cLng = data?.center_lng ?? data?.metadata?.center_lng;
         const cLat = data?.center_lat ?? data?.metadata?.center_lat;
@@ -249,7 +253,6 @@ export default function TenantMapPortal({ params }: PageProps) {
     };
   }, [slug, isRoot]);
 
-  // 💡 TARGET C: Added setMapLoaded event framework within Mapbox lifecycle initialization hooks
   useEffect(() => {
     if (needsEmail) return;
     if (!mapContainer.current || mapRef.current || !center) return;
@@ -270,7 +273,7 @@ export default function TenantMapPortal({ params }: PageProps) {
     mapRef.current = map;
     map.on("load", () => {
       map.resize();
-      setMapLoaded(true); // Signal tracking flags that context layers are completely valid
+      setMapLoaded(true);
     });
   }, [center, needsEmail]);
 
@@ -294,7 +297,7 @@ export default function TenantMapPortal({ params }: PageProps) {
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !mapLoaded) return; // Halt element updates gracefully if runtime layers are incomplete
+    if (!map || !mapLoaded) return;
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
 
@@ -341,21 +344,17 @@ export default function TenantMapPortal({ params }: PageProps) {
       el.setAttribute("aria-label", p.name);
       el.style.cssText = `display:flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:9999px;background:${meta.color};color:#fff;box-shadow:${shadow};cursor:pointer;font-size:${isGold ? 22 : 14}px;font-weight:800;border:none;transform:translateY(-${size / 3}px);${isGold ? "z-index:2;" : ""}`;
       el.textContent = meta.emoji;
-      
       el.addEventListener("click", (e) => {
         e.stopPropagation();
         setSelected(p);
       });
-      
       const marker = new mapboxgl.Marker({ element: el })
         .setLngLat([p.lng, p.lat])
         .addTo(map);
       markersRef.current.push(marker);
     });
-  // 💡 TARGET D: Added mapLoaded to structural reactive dependency layout bounds safely 
   }, [visible, center, isRoot, distributorName, brandColor, mapLoaded]);
 
-  // 💡 TARGET B: Fixed Google Maps intent string interpolation typo template bug
   const openDirections = () => {
     if (!selected) return;
     window.open(
@@ -432,15 +431,24 @@ export default function TenantMapPortal({ params }: PageProps) {
       <header className="sticky top-0 z-40 shadow-lg" style={{ backgroundColor: brandColor }}>
         <div className="mx-auto flex max-w-md items-center gap-3 px-4 py-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-lg ring-1 ring-white/20">🦴</div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "#FCD34D" }}>Downtown Dog Guide</p>
+          
+          {/* ── FIXED branding context panel header ──────────────────────── */}
+          <div className="min-w-0 flex-1 flex flex-col">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-amber-300">
+              {metadata?.map_title || "DOWNTOWN DOG GUIDE"}
+            </span>
             <p className="truncate text-[12px] leading-tight text-white/90">
               Brought to you by <span className="font-bold text-white">{distributorName}</span>
             </p>
           </div>
-          <button className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-[11px] font-bold text-slate-900 shadow-md transition-all hover:scale-[1.04] active:scale-95" style={{ backgroundColor: GOLD }}>
-            <Tag className="h-3 w-3" /> Get 15% Off
-          </button>
+          
+          {/* ── FIXED dynamic premium promo banner button trigger layout ── */}
+          {metadata?.promo_button_text && (
+            <button className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-[11px] font-bold text-slate-900 shadow-md transition-all hover:scale-[1.04] active:scale-95 bg-amber-400">
+              <Tag className="h-3 w-3" />
+              {metadata.promo_button_text}
+            </button>
+          )}
         </div>
       </header>
 

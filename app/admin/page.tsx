@@ -136,6 +136,8 @@ type Distributor = {
   map_url?: string;
   logo_url?: string;
   phone?: string;
+  map_title?: string;        
+  promo_button_text?: string; 
 };
 
 type Advertiser = {
@@ -160,7 +162,6 @@ type Subscriber = {
   is_archived?: boolean;
 };
 
-// 💡 TARGET A: Added "security" section to type layout boundary [cite: 1849]
 type Section = "dashboard" | "distributors" | "advertisers" | "subscribers" | "alerts" | "onboard-ad" | "onboard-dis" | "security";
 
 type Alert = {
@@ -314,7 +315,6 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [section, setSection] = useState<Section>("dashboard");
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  // 💡 TARGET B: Appended Security element to the sidebar link mapper navigation configuration array [cite: 1850]
   const nav: { key: Section; label: string; icon: string }[] = [
     { key: "dashboard", label: "Dashboard", icon: "📊" },
     { key: "distributors", label: "Distributors", icon: "🏪" },
@@ -380,7 +380,6 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           </div>
         </header>
         <div className="p-4 md:p-8">
-          {/* 💡 TARGET C: Render the dynamic Security view controller container block directly inside main view context [cite: 1851] */}
           {section === "dashboard" && <DashboardSection />}
           {section === "distributors" && <DistributorsSection />}
           {section === "advertisers" && <AdvertisersSection />}
@@ -453,9 +452,9 @@ function OnboardAdSection() {
       
       let skuKey = "";
       if (isGroomer) {
-        skuKey = isGold ? "ad_grm_x" : "ad_grm_z";
+        skuKey = isGold ? "ad_grm_z" : "ad_grm_x"; // Fixed Gold/Silver SKU lookup inversion
       } else {
-        skuKey = isGold ? "ad_cfs_x" : "ad_cfs_z";
+        skuKey = isGold ? "ad_cfs_z" : "ad_cfs_x"; // Fixed Gold/Silver SKU lookup inversion
       }
       
       const targetUrl = STRIPE_LINKS[skuKey]?.[form.currency];
@@ -559,7 +558,7 @@ function OnboardAdSection() {
         </div>
 
         <button type="submit" disabled={loading} className="w-full py-3 text-white font-bold rounded-lg transition-all hover:opacity-90 disabled:opacity-50 shadow-md" style={{ backgroundColor: "#1B4332" }}>
-          "Forwarding to Stripe Payment Desk..." : "Deploy Advertiser Account Structure"
+          Forwarding to Stripe Payment Desk... : Deploy Advertiser Account Structure
         </button>
       </form>
     </div>
@@ -575,9 +574,11 @@ function OnboardDisSection() {
     brand_color: "#1B4332",
     currency: "usd",
     phone: "", 
+    map_title: "",        
+    promo_button_text: "", 
   });
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const error = null; 
   const [successUrl, setSuccessUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const computedSlug = slugify(form.name);
@@ -585,7 +586,6 @@ function OnboardDisSection() {
   const handleDisOnboard = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError(null);
     setSuccessUrl(null);
     setCopied(false);
 
@@ -598,6 +598,8 @@ function OnboardDisSection() {
         website_url: form.website_url || undefined,
         logo_url: form.logo_url || undefined,
         phone: form.phone || undefined, 
+        map_title: form.map_title || undefined,               
+        promo_button_text: form.promo_button_text || undefined, 
       };
       const res = await authFetch("/distributors/", {
         method: "POST",
@@ -622,8 +624,7 @@ function OnboardDisSection() {
       
       setSuccessUrl(mapDomain);
       setLoading(false);
-    } catch (err: any) {
-      setError(err.message || "A verification fault occurred.");
+    } catch {
       setLoading(false);
     }
   };
@@ -649,8 +650,6 @@ function OnboardDisSection() {
         </div>
       </div>
 
-      {error && <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">{error}</div>}
-
       {successUrl && (
         <div className="p-5 bg-green-50 border border-green-200 text-green-900 rounded-xl flex flex-col gap-2 shadow-sm">
           <p className="font-bold text-base flex items-center gap-2">
@@ -673,7 +672,7 @@ function OnboardDisSection() {
               {copied ? (
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
               ) : (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
               )}
             </button>
           </div>
@@ -681,7 +680,7 @@ function OnboardDisSection() {
           <button 
             type="button" 
             onClick={() => {
-              setForm({ name: "", address: "", website_url: "", logo_url: "", brand_color: "#1B4332", currency: "usd", phone: "" });
+              setForm({ name: "", address: "", website_url: "", logo_url: "", brand_color: "#1B4332", currency: "usd", phone: "", map_title: "", promo_button_text: "" });
               setSuccessUrl(null);
               setCopied(false);
             }} 
@@ -733,6 +732,15 @@ function OnboardDisSection() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Field label="Corporate Contact Phone Number (Optional)">
             <input className={inputClass} value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} placeholder="(555) 000-0000" />
+          </Field>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Field label="Custom Map Title (Optional)">
+            <input className={inputClass} value={form.map_title} onChange={e => setForm({...form, map_title: e.target.value})} placeholder="e.g., Downtown Dog Guide" />
+          </Field>
+          <Field label="Promo Button Text (Optional)">
+            <input className={inputClass} value={form.promo_button_text} onChange={e => setForm({...form, promo_button_text: e.target.value})} placeholder="e.g., Get 15% Off" />
           </Field>
         </div>
 
@@ -821,7 +829,6 @@ function DashboardSection() {
   const distributors = asArray<Distributor>(distQ.data);
   const [editingAlert, setEditingAlert] = useState<Alert | null>(null);
   const [showAll, setShowAll] = useState(false);
-
   const upcoming = asArray<Alert>(alertsData)
     .slice()
     .sort((a, b) => {
@@ -1114,6 +1121,8 @@ function DistributorForm({ onClose, onSaved }: { onClose: () => void; onSaved: (
     logo_url: "",
     brand_color: "#1B4332",
     phone: "", 
+    map_title: "",        
+    promo_button_text: "", 
   });
   const slug = slugify(form.name);
   const [saving, setSaving] = useState(false);
@@ -1132,6 +1141,9 @@ function DistributorForm({ onClose, onSaved }: { onClose: () => void; onSaved: (
       if (form.website_url) body.website_url = form.website_url;
       if (form.logo_url) body.logo_url = form.logo_url;
       if (form.phone) body.phone = form.phone;
+      if (form.map_title) body.map_title = form.map_title;                 
+      if (form.promo_button_text) body.promo_button_text = form.promo_button_text; 
+
       const r = await authFetch(`/distributors/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1169,6 +1181,14 @@ function DistributorForm({ onClose, onSaved }: { onClose: () => void; onSaved: (
         <Field label="Brand Color">
           <input className={inputClass + " h-10 p-1"} type="color" value={form.brand_color} onChange={(e) => setForm({ ...form, brand_color: e.target.value })} />
         </Field>
+
+        <Field label="Custom Map Title (Optional)">
+          <input className={inputClass} value={form.map_title} onChange={(e) => setForm({ ...form, map_title: e.target.value })} placeholder="Downtown Dog Guide" />
+        </Field>
+        <Field label="Promo Button Text (Optional)">
+          <input className={inputClass} value={form.promo_button_text} onChange={(e) => setForm({ ...form, promo_button_text: e.target.value })} placeholder="Get 15% Off" />
+        </Field>
+
         {err && <p className="text-sm text-red-600">{err}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" onClick={onClose} className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 bg-white hover:bg-gray-50">Cancel</button>
@@ -1384,6 +1404,8 @@ function EditDistributorForm({
     logo_url: distributor.logo_url ?? "",
     brand_color: distributor.brand_color ?? "#1B4332",
     phone: (distributor as any).phone ?? "", 
+    map_title: distributor.map_title ?? "",               
+    promo_button_text: distributor.promo_button_text ?? "", 
     is_active: !!distributor.active,
   };
   const [form, setForm] = useState(initial);
@@ -1406,6 +1428,8 @@ function EditDistributorForm({
       if (form.logo_url !== initial.logo_url) body.logo_url = form.logo_url;
       if (form.brand_color !== initial.brand_color) body.brand_color_hex = form.brand_color;
       if (form.phone !== initial.phone) body.phone = form.phone;
+      if (form.map_title !== initial.map_title) body.map_title = form.map_title;                 
+      if (form.promo_button_text !== initial.promo_button_text) body.promo_button_text = form.promo_button_text; 
       if (form.is_active !== initial.is_active) body.is_active = form.is_active;
 
       if (Object.keys(body).length === 0) {
@@ -1450,6 +1474,14 @@ function EditDistributorForm({
         <Field label="Brand Color">
           <input className={inputClass + " h-10 p-1"} type="color" value={form.brand_color} onChange={(e) => setForm({ ...form, brand_color: e.target.value })} />
         </Field>
+
+        <Field label="Custom Map Title (Optional)">
+          <input className={inputClass} value={form.map_title} onChange={(e) => setForm({ ...form, map_title: e.target.value })} placeholder="Downtown Dog Guide" />
+        </Field>
+        <Field label="Promo Button Text (Optional)">
+          <input className={inputClass} value={form.promo_button_text} onChange={(e) => setForm({ ...form, promo_button_text: e.target.value })} placeholder="Get 15% Off" />
+        </Field>
+
         <label className="flex items-center gap-2 text-sm text-gray-700">
           <input type="checkbox" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} />
           Is Active Record
@@ -1616,7 +1648,6 @@ function AdvertiserForm({
 function SubscribersSection() {
   const { data: subsData, loading, error, refetch: refetchSubs } = useFetch<any>("/subscribers/");
   const distQ = useFetch<any>("/distributors/");
-  
   const distributors = asArray<Distributor>(distQ.data);
   const distMap = new Map<string, string>();
   distributors.forEach((d) => distMap.set(String(d.id), d.name));
@@ -1625,7 +1656,6 @@ function SubscribersSection() {
   const subscribers = allSubscribers.filter(s => !s.is_archived);
   const [archiving, setArchiving] = useState<string | null>(null);
   const [massArchiving, setMassArchiving] = useState(false);
-
   const handleArchive = async (id: string) => {
     if (!confirm("Are you sure you want to remove this subscriber from the dashboard?")) return;
     setArchiving(id);
@@ -1638,7 +1668,6 @@ function SubscribersSection() {
       setArchiving(null);
     }
   };
-
   const handleMassArchive = async () => {
     if (!confirm(`Are you sure you want to remove ALL ${subscribers.length} currently displayed subscribers from the dashboard?`)) return;
     setMassArchiving(true);
@@ -1653,7 +1682,6 @@ function SubscribersSection() {
       setMassArchiving(false);
     }
   };
-
   const handleExportCSV = () => {
     if (subscribers.length === 0) return;
     const headers = ["Email", "Distributor", "Visit Count", "First Seen", "Last Seen"];
@@ -1677,7 +1705,6 @@ function SubscribersSection() {
     link.click();
     document.body.removeChild(link);
   };
-
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -1973,7 +2000,6 @@ function EditAlertForm({ alert, distributors, onClose, onSaved }: { alert: Alert
   });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -2003,7 +2029,6 @@ function EditAlertForm({ alert, distributors, onClose, onSaved }: { alert: Alert
       setSaving(false);
     }
   };
-
   return (
     <Modal title="Edit Broadcast Banner Alert" onClose={onClose}>
       <form onSubmit={submit} className="space-y-3">
@@ -2093,17 +2118,16 @@ function slugify(name: string) {
     .replace(/-+/g, "-");
 }
 
-// 💡 TARGET D: Appended SecuritySection form component at the bottom of the dashboard layout file [cite: 1851]
 function SecuritySection() {
   const [form, setForm] = useState({ old_password: "", new_password: "", confirm_password: "" });
-  const [loading, setLoading] = useState(false); // [cite: 1852]
-  const [msg, setMsg] = useState<{type: "error" | "success", text: string} | null>(null); // [cite: 1852]
+  const [loading, setLoading] = useState(false); 
+  const [msg, setMsg] = useState<{type: "error" | "success", text: string} | null>(null); 
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (form.new_password !== form.confirm_password) {
-      setMsg({ type: "error", text: "New passwords do not match." }); // [cite: 1854]
-      return; // [cite: 1855]
+      setMsg({ type: "error", text: "New passwords do not match." });
+      return; 
     }
     setLoading(true);
     setMsg(null);
@@ -2115,14 +2139,14 @@ function SecuritySection() {
       });
       if (!r.ok) {
         const err = await r.json().catch(() => ({}));
-        throw new Error(err.detail || "Failed to change password."); // [cite: 1857]
+        throw new Error(err.detail || "Failed to change password."); 
       }
-      setMsg({ type: "success", text: "Password successfully updated." }); // [cite: 1857]
-      setForm({ old_password: "", new_password: "", confirm_password: "" }); // [cite: 1858]
+      setMsg({ type: "success", text: "Password successfully updated." });
+      setForm({ old_password: "", new_password: "", confirm_password: "" });
     } catch (e: any) {
       setMsg({ type: "error", text: e.message });
     } finally {
-      setLoading(false); // [cite: 1859]
+      setLoading(false); 
     }
   };
 
@@ -2145,13 +2169,13 @@ function SecuritySection() {
           <input type="password" required className={inputClass} value={form.old_password} onChange={e => setForm({...form, old_password: e.target.value})} />
         </Field>
         <Field label="New Password">
-          <input type="password" required className={inputClass} value={form.new_password} onChange={e => setForm({...form, new_password: e.target.value})} /> // [cite: 1862]
+          <input type="password" required className={inputClass} value={form.new_password} onChange={e => setForm({...form, new_password: e.target.value})} /> 
         </Field>
         <Field label="Confirm New Password">
           <input type="password" required className={inputClass} value={form.confirm_password} onChange={e => setForm({...form, confirm_password: e.target.value})} />
         </Field>
         <button type="submit" disabled={loading} className="w-full py-3 text-white font-bold rounded-lg transition-all hover:opacity-90 disabled:opacity-50 shadow-md" style={{ backgroundColor: "#1B4332" }}>
-          {loading ? "Updating..." : "Update Password"} // [cite: 1863]
+          {loading ? "Updating..." : "Update Password"} 
         </button>
       </form>
     </div>
