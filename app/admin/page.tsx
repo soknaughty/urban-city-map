@@ -1217,6 +1217,7 @@ function AdvertisersSection() {
   });
   const distributors = asArray<Distributor>(distQ.data);
   const [showForm, useStateForm] = useState(false);
+  const [showMiscForm, setShowMiscForm] = useState(false);
   const [editing, setEditing] = useState<Advertiser | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [selectedDistributor, setSelectedDistributor] = useState<string>("");
@@ -1273,13 +1274,21 @@ function AdvertisersSection() {
             ))}
           </select>
         </div>
-        <button
-          onClick={() => useStateForm(true)}
-          className="rounded-md px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
-          style={{ backgroundColor: "#1B4332" }}
-        >
-          + Add Advertiser
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowMiscForm(true)}
+            className="rounded-md px-4 py-2 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-300 transition-colors"
+          >
+            + Add Miscellaneous
+          </button>
+          <button
+            onClick={() => useStateForm(true)}
+            className="rounded-md px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
+            style={{ backgroundColor: "#1B4332" }}
+          >
+            + Add Advertiser
+          </button>
+        </div>
       </div>
 
       {error && <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
@@ -1376,6 +1385,17 @@ function AdvertisersSection() {
           onClose={() => useStateForm(false)}
           onSaved={() => {
             useStateForm(false);
+            refetch();
+          }}
+        />
+      )}
+
+      {showMiscForm && (
+        <MiscellaneousForm
+          distributors={distributors}
+          onClose={() => setShowMiscForm(false)}
+          onSaved={() => {
+            setShowMiscForm(false);
             refetch();
           }}
         />
@@ -2179,5 +2199,137 @@ function SecuritySection() {
         </button>
       </form>
     </div>
+  );
+}
+
+function MiscellaneousForm({
+  distributors,
+  advertiser,
+  onClose,
+  onSaved,
+}: {
+  distributors: Distributor[];
+  advertiser?: Advertiser;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const isEdit = !!advertiser;
+  const initial = {
+    business_name: advertiser?.business_name || "",
+    category: advertiser?.category || "parks", // Defaults to Parks & Fields
+    address: (advertiser as any)?.address || (advertiser as any)?.address_string || "",
+    insider_tip: (advertiser as any)?.insider_tip || "",
+    distributor_id: advertiser?.distributor_id || (isEdit ? "" : distributors[0]?.id || ""),
+  };
+  
+  const [form, setForm] = useState(initial);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setErr(null);
+    try {
+      const toPayloadKey = (k: string) => (k === "address" ? "address_string" : k);
+      let body: any;
+      let skipSave = false;
+
+      if (isEdit) {
+        body = {};
+        (Object.keys(form) as (keyof typeof form)[]).forEach((k) => {
+          if (k === "distributor_id") return;
+          if (form[k as keyof typeof form] !== (initial as any)[k]) {
+            body[toPayloadKey(k)] = form[k as keyof typeof form];
+          }
+        });
+        if (Object.keys(body).length === 0) {
+          skipSave = true;
+        }
+      } else {
+        // Send safe defaults to satisfy the backend schema
+        body = {
+          business_name: form.business_name,
+          category: form.category,
+          address_string: form.address,
+          insider_tip: form.insider_tip || undefined,
+          tier: "silver", 
+          phone: null,
+          website_url: null,
+        };
+      }
+
+      let savedId: string | undefined = advertiser?.id;
+      if (!skipSave) {
+        const r = await authFetch(isEdit ? `/advertisers/${advertiser!.id}` : `/advertisers/`, {
+          method: isEdit ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!r.ok) throw new Error(`Save failed: ${r.status}`);
+        
+        try {
+          const saved = await r.json();
+          savedId = saved?.id ?? savedId;
+        } catch {
+          // ignore
+        }
+      }
+
+      const distributorChanged = !isEdit || form.distributor_id !== (initial as any).distributor_id;
+      if (savedId && distributorChanged && form.distributor_id) {
+        const ar = await authFetch(`/maps/assignments`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            distributor_id: form.distributor_id,
+            advertiser_id: savedId,
+          }),
+        });
+        if (!ar.ok) throw new Error(`Assignment failed: ${ar.status}`);
+      }
+
+      onSaved();
+    } catch (e: any) {
+      setErr(e.message || String(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal title={isEdit ? "Edit Miscellaneous Place" : "Deploy Miscellaneous Instance"} onClose={onClose}>
+      <form onSubmit={submit} className="space-y-3">
+        <Field label="Location Name">
+          <input className={inputClass} value={form.business_name} onChange={(e) => setForm({ ...form, business_name: e.target.value })} required />
+        </Field>
+        <Field label="Category Selector Menu">
+          <select className={inputClass} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} >
+            {ADVERTISER_CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+          </select>
+        </Field>
+        <Field label="Address">
+          <input className={inputClass} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} required />
+        </Field>
+        <Field label="Host Map Anchor Partner (Dynamic Dropdown)">
+          <select className={inputClass} value={form.distributor_id} onChange={(e) => setForm({ ...form, distributor_id: e.target.value })} >
+            <option value="">— Unassigned Root Layout —</option>
+            {distributors.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+          </select>
+        </Field>
+        <Field label="Community Insider Recommendation Tip Context">
+          <input className={inputClass} value={form.insider_tip} onChange={(e) => setForm({ ...form, insider_tip: e.target.value })} />
+        </Field>
+        
+        {err && <p className="text-sm text-red-600">{err}</p>}
+        
+        <div className="flex justify-end gap-2 pt-2">
+          <button type="button" onClick={onClose} className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 bg-white hover:bg-gray-50">Cancel</button>
+          <button type="submit" disabled={saving} className="rounded-md px-4 py-2 text-sm font-semibold text-white disabled:opacity-50" style={{ backgroundColor: "#1B4332" }}>
+            {saving ? "Deploying…" : "Save Changes"}
+          </button>
+        </div>
+      </form>
+    </Modal>
   );
 }
