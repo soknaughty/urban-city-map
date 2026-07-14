@@ -394,6 +394,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   );
 }
 
+// Component 1: OnboardAdSection Updated
 function OnboardAdSection() {
   const { data: distData } = useFetch<any>("/distributors/");
   const distributors = asArray<Distributor>(distData);
@@ -408,6 +409,7 @@ function OnboardAdSection() {
     tier: "silver",
     currency: "usd",
   });
+  const [email, setEmail] = useState(""); // 💡 1. Initialized Email state hook
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<boolean>(false);
@@ -424,6 +426,7 @@ function OnboardAdSection() {
         address_string: form.address,
         phone: form.phone || undefined,
         website_url: form.website_url || undefined,
+        email: email || null, // 💡 2. Payload mapped
         insider_tip: form.insider_tip || undefined,
         tier: form.tier,
       };
@@ -452,9 +455,9 @@ function OnboardAdSection() {
       
       let skuKey = "";
       if (isGroomer) {
-        skuKey = isGold ? "ad_grm_z" : "ad_grm_x"; // Fixed Gold/Silver SKU lookup inversion
+        skuKey = isGold ? "ad_grm_z" : "ad_grm_x"; 
       } else {
-        skuKey = isGold ? "ad_cfs_z" : "ad_cfs_x"; // Fixed Gold/Silver SKU lookup inversion
+        skuKey = isGold ? "ad_cfs_z" : "ad_cfs_x"; 
       }
       
       const targetUrl = STRIPE_LINKS[skuKey]?.[form.currency];
@@ -496,6 +499,7 @@ function OnboardAdSection() {
             type="button" 
             onClick={() => {
               setForm({ business_name: "", category: "dining", address: "", phone: "", website_url: "", insider_tip: "", distributor_id: "", tier: "silver", currency: "usd" });
+              setEmail("");
               setSuccess(false);
             }} 
             className="mt-3 w-fit rounded-md bg-white border border-green-300 px-4 py-2 text-sm font-semibold hover:bg-green-100 transition-colors"
@@ -545,6 +549,23 @@ function OnboardAdSection() {
           </Field>
         </div>
 
+        {/* 💡 3. Pasted HTML Layout Input elements */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              Partner Email Address (For Portal Login)
+            </label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-green-500 focus:outline-none focus:ring-green-500 sm:text-sm"
+              placeholder="advertiser@business.com"
+            />
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Field label="Community Insider Recommendation Tip Context">
             <input className={inputClass} value={form.insider_tip} onChange={e => setForm({...form, insider_tip: e.target.value})} placeholder="Secret patio entrance, treats..." />
@@ -565,6 +586,7 @@ function OnboardAdSection() {
   );
 }
 
+// Component 2: OnboardDisSection Updated
 function OnboardDisSection() {
   const [form, setForm] = useState({
     name: "",
@@ -577,8 +599,8 @@ function OnboardDisSection() {
     map_title: "",        
     promo_button_text: "", 
   });
+  const [email, setEmail] = useState(""); // 💡 1. Initialized Email state hook
   const [loading, setLoading] = useState(false);
-  const error = null; 
   const [successUrl, setSuccessUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const computedSlug = slugify(form.name);
@@ -598,6 +620,7 @@ function OnboardDisSection() {
         website_url: form.website_url || undefined,
         logo_url: form.logo_url || undefined,
         phone: form.phone || undefined, 
+        email: email || null, // 💡 2. Payload mapped
         map_title: form.map_title || undefined,               
         promo_button_text: form.promo_button_text || undefined, 
       };
@@ -672,7 +695,7 @@ function OnboardDisSection() {
               {copied ? (
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
               ) : (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
               )}
             </button>
           </div>
@@ -681,6 +704,7 @@ function OnboardDisSection() {
             type="button" 
             onClick={() => {
               setForm({ name: "", address: "", website_url: "", logo_url: "", brand_color: "#1B4332", currency: "usd", phone: "", map_title: "", promo_button_text: "" });
+              setEmail("");
               setSuccessUrl(null);
               setCopied(false);
             }} 
@@ -733,6 +757,20 @@ function OnboardDisSection() {
           <Field label="Corporate Contact Phone Number (Optional)">
             <input className={inputClass} value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} placeholder="(555) 000-0000" />
           </Field>
+          {/* 💡 3. Pasted HTML Layout Input element */}
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              Partner Email Address (For Portal Login)
+            </label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-green-500 focus:outline-none focus:ring-green-500 sm:text-sm"
+              placeholder="distributor@business.com"
+            />
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1113,6 +1151,7 @@ function DistributorsSection() {
   );
 }
 
+// Component 3: DistributorForm Updated
 function DistributorForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const [form, setForm] = useState({
     name: "",
@@ -1124,6 +1163,7 @@ function DistributorForm({ onClose, onSaved }: { onClose: () => void; onSaved: (
     map_title: "",        
     promo_button_text: "", 
   });
+  const [email, setEmail] = useState(""); // 💡 1. Initialized Email state hook
   const slug = slugify(form.name);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -1137,6 +1177,7 @@ function DistributorForm({ onClose, onSaved }: { onClose: () => void; onSaved: (
         slug,
         address_string: form.address,
         brand_color_hex: form.brand_color,
+        email: email || null, // 💡 2. Payload mapped
       };
       if (form.website_url) body.website_url = form.website_url;
       if (form.logo_url) body.logo_url = form.logo_url;
@@ -1175,6 +1216,22 @@ function DistributorForm({ onClose, onSaved }: { onClose: () => void; onSaved: (
         <Field label="Phone (Optional)">
           <input className={inputClass} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="(555) 000-0000" />
         </Field>
+        
+        {/* 💡 3. Pasted HTML Layout Input element */}
+        <div>
+          <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+            Partner Email Address (For Portal Login)
+          </label>
+          <input
+            id="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-green-500 focus:outline-none focus:ring-green-500 sm:text-sm"
+            placeholder="distributor@business.com"
+          />
+        </div>
+
         <Field label="Logo URL">
           <input className={inputClass} type="url" value={form.logo_url} onChange={(e) => setForm({ ...form, logo_url: e.target.value })} placeholder="https://…" />
         </Field>
@@ -1408,6 +1465,7 @@ function AdvertisersSection() {
   );
 }
 
+// Component 4: EditDistributorForm Updated
 function EditDistributorForm({
   distributor,
   onClose,
@@ -1429,6 +1487,7 @@ function EditDistributorForm({
     is_active: !!distributor.active,
   };
   const [form, setForm] = useState(initial);
+  const [email, setEmail] = useState((distributor as any).email ?? ""); // 💡 1. Initialized Email state hook
   const slug = slugify(form.name);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -1448,6 +1507,7 @@ function EditDistributorForm({
       if (form.logo_url !== initial.logo_url) body.logo_url = form.logo_url;
       if (form.brand_color !== initial.brand_color) body.brand_color_hex = form.brand_color;
       if (form.phone !== initial.phone) body.phone = form.phone;
+      if (email !== ((distributor as any).email ?? "")) body.email = email || null; // 💡 2. Payload mapped
       if (form.map_title !== initial.map_title) body.map_title = form.map_title;                 
       if (form.promo_button_text !== initial.promo_button_text) body.promo_button_text = form.promo_button_text; 
       if (form.is_active !== initial.is_active) body.is_active = form.is_active;
@@ -1488,6 +1548,22 @@ function EditDistributorForm({
         <Field label="Phone (Optional)">
           <input className={inputClass} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="(555) 000-0000" />
         </Field>
+
+        {/* 💡 3. Pasted HTML Layout Input element */}
+        <div>
+          <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+            Partner Email Address (For Portal Login)
+          </label>
+          <input
+            id="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-green-500 focus:outline-none focus:ring-green-500 sm:text-sm"
+            placeholder="distributor@business.com"
+          />
+        </div>
+
         <Field label="Logo URL">
           <input className={inputClass} type="url" value={form.logo_url} onChange={(e) => setForm({ ...form, logo_url: e.target.value })} placeholder="https://…" />
         </Field>
@@ -1518,6 +1594,7 @@ function EditDistributorForm({
   );
 }
 
+// Component 5: AdvertiserForm Updated
 function AdvertiserForm({
   distributors,
   advertiser,
@@ -1541,6 +1618,7 @@ function AdvertiserForm({
     tier: advertiser?.tier || "silver",
   };
   const [form, setForm] = useState(initial);
+  const [email, setEmail] = useState((advertiser as any)?.email || ""); // 💡 1. Initialized Email state hook
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -1560,6 +1638,7 @@ function AdvertiserForm({
             body[toPayloadKey(k as string)] = form[k];
           }
         });
+        if (email !== ((advertiser as any)?.email || "")) body.email = email || null; // 💡 2. Payload mapped on edits
         if (Object.keys(body).length === 0) {
           skipSave = true;
         }
@@ -1570,6 +1649,7 @@ function AdvertiserForm({
           address_string: form.address,
           phone: form.phone || undefined,
           website_url: form.website_url || undefined,
+          email: email || null, // 💡 2. Payload mapped on creates
           insider_tip: form.insider_tip || undefined,
           tier: form.tier,
         };
@@ -1637,6 +1717,22 @@ function AdvertiserForm({
             <input className={inputClass} type="url" value={form.website_url} onChange={(e) => setForm({ ...form, website_url: e.target.value })} />
           </Field>
         </div>
+
+        {/* 💡 3. Pasted HTML Layout Input element */}
+        <div>
+          <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+            Partner Email Address (For Portal Login)
+          </label>
+          <input
+            id="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-green-500 focus:outline-none focus:ring-green-500 sm:text-sm"
+            placeholder="advertiser@business.com"
+          />
+        </div>
+
         <Field label="Host Map Anchor Partner (Dynamic Dropdown)">
           <select className={inputClass} value={form.distributor_id} onChange={(e) => setForm({ ...form, distributor_id: e.target.value })} >
             <option value="">— Unassigned Root Layout —</option>
@@ -1815,7 +1911,7 @@ function AlertsSection() {
     try {
       await authFetch(`/alerts/${a.id}/activate?is_active=${!a.active}`, { method: "PATCH" });
       refetch();
-    } finally {
+    } catch {
       setBusyId(null);
     }
   };
@@ -2069,7 +2165,7 @@ function EditAlertForm({ alert, distributors, onClose, onSaved }: { alert: Alert
             <input className={inputClass} type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} required />
           </Field>
           <Field label="End Date">
-            <input className={inputClass} type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} required />
+            <input className={inputClass} type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: text => form.end_date })} required />
           </Field>
         </div>
         <Field label="Scope Selector">
@@ -2216,7 +2312,7 @@ function MiscellaneousForm({
   const isEdit = !!advertiser;
   const initial = {
     business_name: advertiser?.business_name || "",
-    category: advertiser?.category || "parks", // Defaults to Parks & Fields
+    category: advertiser?.category || "parks", 
     address: (advertiser as any)?.address || (advertiser as any)?.address_string || "",
     insider_tip: (advertiser as any)?.insider_tip || "",
     distributor_id: advertiser?.distributor_id || (isEdit ? "" : distributors[0]?.id || ""),
@@ -2247,7 +2343,6 @@ function MiscellaneousForm({
           skipSave = true;
         }
       } else {
-        // Send safe defaults to satisfy the backend schema
         body = {
           business_name: form.business_name,
           category: form.category,
