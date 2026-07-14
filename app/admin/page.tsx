@@ -2165,7 +2165,7 @@ function EditAlertForm({ alert, distributors, onClose, onSaved }: { alert: Alert
             <input className={inputClass} type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} required />
           </Field>
           <Field label="End Date">
-            <input className={inputClass} type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: text => form.end_date })} required />
+            <input className={inputClass} type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} required />
           </Field>
         </div>
         <Field label="Scope Selector">
