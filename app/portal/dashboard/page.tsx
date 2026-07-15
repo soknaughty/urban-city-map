@@ -13,11 +13,10 @@ function DashboardContent() {
   const [partnerData, setPartnerData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   
-  // State for Edit Mode
+  // State for Edit Mode (Now managing ONLY promo_button_text)
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
-    hero_heading: "",
-    hero_message: ""
+    promo_button_text: ""
   });
 
   useEffect(() => {
@@ -47,10 +46,9 @@ function DashboardContent() {
       })
       .then(data => {
         setPartnerData(data);
-        // Pre-fill the edit form with existing data
+        // Pre-fill the edit form with the database value
         setEditForm({
-          hero_heading: data.hero_heading || "Your Downtown Dog Guide",
-          hero_message: data.hero_message || "Get instant access to dog-friendly patios..."
+          promo_button_text: data.promo_button_text || ""
         });
       })
       .catch(err => setError(err.message))
@@ -73,19 +71,17 @@ function DashboardContent() {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          hero_heading: editForm.hero_heading,
-          hero_message: editForm.hero_message
+          promo_button_text: editForm.promo_button_text
         })
       });
 
       if (!res.ok) throw new Error("Failed to save changes");
       
-      // Update the dashboard display instantly with the new data
       setPartnerData({
         ...partnerData,
         ...editForm
       });
-      setIsEditing(false); // Close the edit mode!
+      setIsEditing(false);
       
     } catch (err) {
       alert("Error saving changes. Please check your connection and try again.");
@@ -97,6 +93,7 @@ function DashboardContent() {
   if (!partnerData) return null;
 
   const isDistributor = partnerData.role === "distributor";
+  const isAdvertiser = partnerData.role === "advertiser";
 
   return (
     <div className="flex min-h-screen bg-gray-50 font-sans text-gray-900">
@@ -142,6 +139,7 @@ function DashboardContent() {
             </div>
             
             <div className="p-6 space-y-6">
+              {/* DISTRIBUTOR DETAILS (EDITABLE) */}
               {isDistributor && (
                 <>
                   <div>
@@ -155,33 +153,38 @@ function DashboardContent() {
                     </a>
                   </div>
                   
-                  {/* EDITABLE FIELDS */}
+                  {/* SINGLE EDITABLE FIELD */}
                   <div className="pt-4 border-t border-gray-100">
-                    <label className="block text-sm font-medium text-gray-500 mb-1">Map Header</label>
+                    <label className="block text-sm font-medium text-gray-500 mb-1">Promo Button Text (Optional)</label>
                     {isEditing ? (
                       <input 
                         type="text" 
-                        value={editForm.hero_heading}
-                        onChange={(e) => setEditForm({...editForm, hero_heading: e.target.value})}
+                        value={editForm.promo_button_text}
+                        onChange={(e) => setEditForm({ promo_button_text: e.target.value })}
                         className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-[#1B4332] outline-none"
+                        placeholder="e.g. Daily Discounts"
                       />
                     ) : (
-                      <p className="text-base text-gray-900">{editForm.hero_heading}</p>
+                      <p className="text-base text-gray-900">{editForm.promo_button_text || "No custom promo text set."}</p>
                     )}
                   </div>
+                </>
+              )}
 
+              {/* ADVERTISER DETAILS (READ ONLY FOR NOW) */}
+              {isAdvertiser && (
+                <>
                   <div>
-                    <label className="block text-sm font-medium text-gray-500 mb-1">Map Message</label>
-                    {isEditing ? (
-                      <textarea 
-                        value={editForm.hero_message}
-                        onChange={(e) => setEditForm({...editForm, hero_message: e.target.value})}
-                        className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-[#1B4332] outline-none"
-                        rows={3}
-                      />
-                    ) : (
-                      <p className="text-base text-gray-900">{editForm.hero_message}</p>
-                    )}
+                    <label className="block text-sm font-medium text-gray-500 mb-1">Business Name</label>
+                    <p className="text-base text-gray-900">{partnerData.business_name}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1">Address</label>
+                    <p className="text-base text-gray-900">{partnerData.address_string || "No address listed"}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1">Listing Placement Tier</label>
+                    <p className="text-base font-semibold capitalize text-gray-900">{partnerData.tier || "Silver"}</p>
                   </div>
                 </>
               )}
