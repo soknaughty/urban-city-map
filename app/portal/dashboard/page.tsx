@@ -1,42 +1,40 @@
 'use client';
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Bone, MapPin, Store, LogOut, Loader2 } from "lucide-react";
 
-// Adjust this base URL depending on your local vs prod environment
 const API_BASE = "https://urbandog-production.up.railway.app/api/v1";
-
-// Ensure this matches the exact key you set when the magic link logs them in
 const PORTAL_TOKEN_KEY = "urbandog_portal_token"; 
 
-export default function PortalDashboard() {
+function DashboardContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [partnerData, setPartnerData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // 1. Catch the token from the URL if they just clicked the magic link
-    const urlParams = new URLSearchParams(window.location.search);
-    const urlToken = urlParams.get("token");
+    // 1. Catch the token using Next.js safe hook
+    const urlToken = searchParams.get("token");
 
     if (urlToken) {
-      // Save it to this specific device's local storage
-      localStorage.setItem(PORTAL_TOKEN_KEY, urlToken);
+      try {
+        localStorage.setItem(PORTAL_TOKEN_KEY, urlToken);
+      } catch (e) {}
       // Scrub the token from the address bar for security
       window.history.replaceState(null, '', '/portal/dashboard');
     }
 
-    // 2. Now check local storage (which will have it if they just arrived via link or are returning)
-    const token = localStorage.getItem(PORTAL_TOKEN_KEY);
+    // 2. Load token from storage (or use the one we just caught)
+    const token = urlToken || localStorage.getItem(PORTAL_TOKEN_KEY);
     
     if (!token) {
-      router.push("/portal/login");
+      router.replace("/portal/login");
       return;
     }
 
-    // Fetches the partner profile data using their secure token
+    // Fetches the partner profile data
     fetch(`${API_BASE}/auth/me`, {
       headers: {
         Authorization: `Bearer ${token}`
@@ -52,16 +50,16 @@ export default function PortalDashboard() {
       .catch(err => {
         setError(err.message);
         localStorage.removeItem(PORTAL_TOKEN_KEY);
-        router.push("/portal/login");
+        router.replace("/portal/login");
       })
       .finally(() => {
         setLoading(false);
       });
-  }, [router]);
+  }, [searchParams, router]);
 
   const handleLogout = () => {
     localStorage.removeItem(PORTAL_TOKEN_KEY);
-    router.push("/portal/login");
+    router.replace("/portal/login");
   };
 
   if (loading) {
@@ -73,16 +71,14 @@ export default function PortalDashboard() {
   }
 
   if (error || !partnerData) {
-    return null; // The useEffect will catch this and route them back to login
+    return null;
   }
 
-  // Identify partner type based on the JSON payload structure
   const isDistributor = partnerData.slug !== undefined;
   const isAdvertiser = partnerData.business_name !== undefined;
 
   return (
     <div className="flex min-h-screen bg-gray-50 font-sans text-gray-900">
-      {/* Sidebar Navigation */}
       <aside className="w-64 bg-[#1B4332] text-white flex flex-col hidden md:flex">
         <div className="flex items-center gap-3 px-6 py-6 border-b border-white/10">
           <Bone className="h-6 w-6" />
@@ -105,7 +101,6 @@ export default function PortalDashboard() {
         </div>
       </aside>
 
-      {/* Main Content Pane */}
       <main className="flex-1 flex flex-col min-w-0">
         <header className="bg-white border-b border-gray-200 px-8 py-5">
           <h1 className="text-2xl font-semibold text-gray-900">
@@ -122,7 +117,6 @@ export default function PortalDashboard() {
             </div>
             
             <div className="p-6 space-y-6">
-              {/* Dynamic View: Distributor */}
               {isDistributor && (
                 <>
                   <div>
@@ -149,7 +143,6 @@ export default function PortalDashboard() {
                 </>
               )}
 
-              {/* Dynamic View: Advertiser */}
               {isAdvertiser && (
                 <>
                   <div>
@@ -181,5 +174,17 @@ export default function PortalDashboard() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function PortalDashboard() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <Loader2 className="h-8 w-8 animate-spin text-[#1B4332]" />
+      </div>
+    }>
+      <DashboardContent />
+    </Suspense>
   );
 }
