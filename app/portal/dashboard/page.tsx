@@ -131,7 +131,7 @@ function DashboardContent() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-500 mb-1">Your Custom Map URL</label>
-                    <a href={`https://${partnerData.slug}.furstops.com`} target="_blank" rel="noreferrer" className="text-[#1B4332] hover:underline font-medium">
+                    <a href={`https://${partnerData.slug}.furstops.com?admin=1`} target="_blank" rel="noreferrer" className="text-[#1B4332] hover:underline font-medium">
                       https://{partnerData.slug}.furstops.com
                     </a>
                   </div>
