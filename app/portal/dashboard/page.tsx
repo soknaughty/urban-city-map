@@ -17,6 +17,18 @@ export default function PortalDashboard() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // 1. Catch the token from the URL if they just clicked the magic link
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlToken = urlParams.get("token");
+
+    if (urlToken) {
+      // Save it to this specific device's local storage
+      localStorage.setItem(PORTAL_TOKEN_KEY, urlToken);
+      // Scrub the token from the address bar for security
+      window.history.replaceState(null, '', '/portal/dashboard');
+    }
+
+    // 2. Now check local storage (which will have it if they just arrived via link or are returning)
     const token = localStorage.getItem(PORTAL_TOKEN_KEY);
     
     if (!token) {
