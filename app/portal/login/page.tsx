@@ -1,15 +1,41 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Bone, Mail, Loader2, ArrowRight } from "lucide-react";
 
 // Pointing to your live Railway backend
 const API_BASE = "https://urbandog-production.up.railway.app/api/v1";
+const PORTAL_TOKEN_KEY = "urbandog_portal_token";
 
 export default function PortalLogin() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error" | "authenticating">("idle");
   const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    // 1. Check if they arrived via a magic link containing a token
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlToken = urlParams.get("token");
+
+    if (urlToken) {
+      setStatus("authenticating");
+      // Save it to this specific device's local storage
+      localStorage.setItem(PORTAL_TOKEN_KEY, urlToken);
+      // Clean up the URL for security
+      window.history.replaceState(null, '', '/portal/login');
+      // Forward them immediately to the dashboard
+      router.push("/portal/dashboard");
+      return;
+    }
+
+    // 2. If they navigate to /login but already have a saved session, auto-forward them
+    const existingToken = localStorage.getItem(PORTAL_TOKEN_KEY);
+    if (existingToken) {
+      router.push("/portal/dashboard");
+    }
+  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,6 +60,17 @@ export default function PortalLogin() {
       setStatus("error");
     }
   };
+
+  if (status === "authenticating") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-[#1B4332]" />
+          <p className="text-[#1B4332] font-medium animate-pulse">Authenticating secure link...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8 font-sans">
