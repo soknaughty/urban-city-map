@@ -28,8 +28,12 @@ function DashboardContent() {
       return;
     }
 
-    // 💡 FIX: Passed the token as a query parameter!
-    fetch(`${API_BASE}/auth/me?token=${token}`)
+    // 💡 FIX: We send the token in BOTH the URL query and the Auth Header!
+    fetch(`${API_BASE}/auth/me?token=${token}`, {
+      headers: { 
+        Authorization: `Bearer ${token}` 
+      }
+    })
       .then(async (res) => {
         if (!res.ok) {
           const errData = await res.json().catch(() => ({ error: `HTTP status ${res.status}` }));
