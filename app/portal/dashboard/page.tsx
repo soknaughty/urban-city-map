@@ -28,12 +28,10 @@ function DashboardContent() {
       return;
     }
 
-    fetch(`${API_BASE}/auth/me`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    // 💡 FIX: Passed the token as a query parameter!
+    fetch(`${API_BASE}/auth/me?token=${token}`)
       .then(async (res) => {
         if (!res.ok) {
-          // 💡 FIX: We grab the raw JSON and convert it into a formatted text string
           const errData = await res.json().catch(() => ({ error: `HTTP status ${res.status}` }));
           throw new Error(JSON.stringify(errData, null, 2));
         }
@@ -69,12 +67,9 @@ function DashboardContent() {
         <div className="bg-red-50 border-2 border-red-200 p-8 rounded-xl max-w-lg w-full text-center shadow-sm">
           <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-red-900 mb-4">Connection Blocked</h2>
-          
-          {/* 💡 FIX: This block will now perfectly render the raw backend JSON error */}
           <div className="bg-white p-4 rounded-lg border border-red-100 mb-6 text-left overflow-x-auto shadow-inner">
             <pre className="text-red-800 text-xs font-mono whitespace-pre-wrap">{error}</pre>
           </div>
-
           <button onClick={handleLogout} className="bg-red-600 text-white px-6 py-2 rounded-lg font-bold shadow-md hover:bg-red-700">
             Return to Login
           </button>
