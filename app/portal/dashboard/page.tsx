@@ -33,8 +33,9 @@ function DashboardContent() {
     })
       .then(async (res) => {
         if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.detail || `Server returned ${res.status}`);
+          // 💡 FIX: We grab the raw JSON and convert it into a formatted text string
+          const errData = await res.json().catch(() => ({ error: `HTTP status ${res.status}` }));
+          throw new Error(JSON.stringify(errData, null, 2));
         }
         return res.json();
       })
@@ -42,7 +43,6 @@ function DashboardContent() {
         setPartnerData(data);
       })
       .catch(err => {
-        // 💡 WE REMOVED THE AUTO-REDIRECT HERE SO WE CAN READ THE ERROR!
         setError(err.message);
       })
       .finally(() => {
@@ -66,10 +66,15 @@ function DashboardContent() {
   if (error) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 p-6">
-        <div className="bg-red-50 border-2 border-red-200 p-8 rounded-xl max-w-md text-center shadow-sm">
+        <div className="bg-red-50 border-2 border-red-200 p-8 rounded-xl max-w-lg w-full text-center shadow-sm">
           <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-red-900 mb-2">Connection Blocked</h2>
-          <p className="text-red-700 font-medium mb-6">{error}</p>
+          <h2 className="text-xl font-bold text-red-900 mb-4">Connection Blocked</h2>
+          
+          {/* 💡 FIX: This block will now perfectly render the raw backend JSON error */}
+          <div className="bg-white p-4 rounded-lg border border-red-100 mb-6 text-left overflow-x-auto shadow-inner">
+            <pre className="text-red-800 text-xs font-mono whitespace-pre-wrap">{error}</pre>
+          </div>
+
           <button onClick={handleLogout} className="bg-red-600 text-white px-6 py-2 rounded-lg font-bold shadow-md hover:bg-red-700">
             Return to Login
           </button>
