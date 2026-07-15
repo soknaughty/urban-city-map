@@ -435,6 +435,7 @@ export default function TenantMapPortal({ params }: PageProps) {
           {/* ── FIXED branding context panel header ──────────────────────── */}
           <div className="min-w-0 flex-1 flex flex-col">
             <span className="text-[11px] font-bold uppercase tracking-wider text-amber-300">
+              {/* 💡 Replaced hardcoded text with dynamic map_title */}
               {metadata?.map_title || "DOWNTOWN DOG GUIDE"}
             </span>
             <p className="truncate text-[12px] leading-tight text-white/90">
@@ -443,6 +444,7 @@ export default function TenantMapPortal({ params }: PageProps) {
           </div>
           
           {/* ── FIXED dynamic premium promo banner button trigger layout ── */}
+          {/* 💡 The button will now only render if the partner provided text */}
           {metadata?.promo_button_text && (
             <button className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-[11px] font-bold text-slate-900 shadow-md transition-all hover:scale-[1.04] active:scale-95 bg-amber-400">
               <Tag className="h-3 w-3" />
