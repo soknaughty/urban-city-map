@@ -13,10 +13,11 @@ function DashboardContent() {
   const [partnerData, setPartnerData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   
-  // State for Edit Mode (Now managing ONLY promo_button_text)
+  // State for Edit Mode (Manages text updates cleanly for both partner roles)
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
-    promo_button_text: ""
+    promo_button_text: "",
+    insider_tip: ""
   });
 
   useEffect(() => {
@@ -46,9 +47,10 @@ function DashboardContent() {
       })
       .then(data => {
         setPartnerData(data);
-        // Pre-fill the edit form with the database value
+        // Pre-fill fields with their matching database records
         setEditForm({
-          promo_button_text: data.promo_button_text || ""
+          promo_button_text: data.promo_button_text || "",
+          insider_tip: data.insider_tip || ""
         });
       })
       .catch(err => setError(err.message))
@@ -63,16 +65,21 @@ function DashboardContent() {
   const handleSave = async () => {
     const token = localStorage.getItem(PORTAL_TOKEN_KEY);
     
+    // Dynamically branch request data based on partner role
+    const isDistributor = partnerData.role === "distributor";
+    const targetEndpoint = isDistributor ? "distributors" : "advertisers";
+    const payload = isDistributor 
+      ? { promo_button_text: editForm.promo_button_text }
+      : { insider_tip: editForm.insider_tip };
+    
     try {
-      const res = await fetch(`${API_BASE}/distributors/${partnerData.id}`, {
+      const res = await fetch(`${API_BASE}/${targetEndpoint}/${partnerData.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          promo_button_text: editForm.promo_button_text
-        })
+        body: JSON.stringify(payload)
       });
 
       if (!res.ok) throw new Error("Failed to save changes");
@@ -94,6 +101,10 @@ function DashboardContent() {
 
   const isDistributor = partnerData.role === "distributor";
   const isAdvertiser = partnerData.role === "advertiser";
+  const isGoldAdvertiser = isAdvertiser && partnerData.tier?.toLowerCase() === "gold";
+  
+  // Gate edit portal button: Distributor ALWAYS edits, Advertiser ONLY if tier is Gold
+  const canEditPortal = isDistributor || isGoldAdvertiser;
 
   return (
     <div className="flex min-h-screen bg-gray-50 font-sans text-gray-900">
@@ -120,7 +131,7 @@ function DashboardContent() {
           <h1 className="text-2xl font-semibold text-gray-900">
             Welcome back, {isDistributor ? partnerData.name : partnerData.business_name}!
           </h1>
-          {isDistributor && (
+          {canEditPortal && (
             <button 
               onClick={() => isEditing ? handleSave() : setIsEditing(true)}
               className="bg-[#1B4332] text-white px-4 py-2 rounded-md font-medium hover:bg-[#122e22] transition-colors"
@@ -139,7 +150,7 @@ function DashboardContent() {
             </div>
             
             <div className="p-6 space-y-6">
-              {/* DISTRIBUTOR DETAILS (EDITABLE) */}
+              {/* DISTRIBUTOR DETAILS SECTION */}
               {isDistributor && (
                 <>
                   <div>
@@ -153,14 +164,13 @@ function DashboardContent() {
                     </a>
                   </div>
                   
-                  {/* SINGLE EDITABLE FIELD */}
                   <div className="pt-4 border-t border-gray-100">
                     <label className="block text-sm font-medium text-gray-500 mb-1">Promo Button Text (Optional)</label>
                     {isEditing ? (
                       <input 
                         type="text" 
                         value={editForm.promo_button_text}
-                        onChange={(e) => setEditForm({ promo_button_text: e.target.value })}
+                        onChange={(e) => setEditForm({ ...editForm, promo_button_text: e.target.value })}
                         className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-[#1B4332] outline-none"
                         placeholder="e.g. Daily Discounts"
                       />
@@ -171,7 +181,7 @@ function DashboardContent() {
                 </>
               )}
 
-              {/* ADVERTISER DETAILS (READ ONLY FOR NOW) */}
+              {/* ADVERTISER DETAILS SECTION */}
               {isAdvertiser && (
                 <>
                   <div>
@@ -186,6 +196,24 @@ function DashboardContent() {
                     <label className="block text-sm font-medium text-gray-500 mb-1">Listing Placement Tier</label>
                     <p className="text-base font-semibold capitalize text-gray-900">{partnerData.tier || "Silver"}</p>
                   </div>
+
+                  {/* PREMIUM GATED FIELD: Only displays if Advertiser is Gold tier */}
+                  {isGoldAdvertiser && (
+                    <div className="pt-4 border-t border-gray-100">
+                      <label className="block text-sm font-medium text-gray-500 mb-1">Insider Tip (Premium Gold Feature)</label>
+                      {isEditing ? (
+                        <textarea 
+                          value={editForm.insider_tip}
+                          onChange={(e) => setEditForm({ ...editForm, insider_tip: e.target.value })}
+                          className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-[#1B4332] outline-none"
+                          rows={3}
+                          placeholder="Provide a helpful tip for visiting pet owners..."
+                        />
+                      ) : (
+                        <p className="text-base text-gray-900 italic">{editForm.insider_tip || "No custom insider tip set yet."}</p>
+                      )}
+                    </div>
+                  )}
                 </>
               )}
             </div>
