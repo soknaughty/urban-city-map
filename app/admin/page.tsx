@@ -183,7 +183,8 @@ type Distributor = {
   logo_url?: string;
   phone?: string;
   map_title?: string;        
-  promo_button_text?: string; 
+  promo_button_text?: string;
+  hq_greeting?: string; 
 };
 
 type Advertiser = {
@@ -641,7 +642,8 @@ function OnboardDisSection() {
     currency: "usd",
     phone: "", 
     map_title: "",        
-    promo_button_text: "", 
+    promo_button_text: "",
+    hq_greeting: "", 
   });
   const [email, setEmail] = useState(""); 
   const [loading, setLoading] = useState(false);
@@ -666,7 +668,8 @@ function OnboardDisSection() {
         phone: form.phone || undefined, 
         email: email || null, 
         map_title: form.map_title || undefined,               
-        promo_button_text: form.promo_button_text || undefined, 
+        promo_button_text: form.promo_button_text || undefined,
+        hq_greeting: form.hq_greeting || undefined,
       };
       const res = await authFetch("/distributors/", {
         method: "POST",
@@ -748,7 +751,18 @@ function OnboardDisSection() {
           <button 
             type="button" 
             onClick={() => {
-              setForm({ name: "", address: "", website_url: "", logo_url: "", brand_color: "#1B4332", currency: "usd", phone: "", map_title: "", promo_button_text: "" });
+              setForm({ 
+                name: "", 
+                address: "", 
+                website_url: "", 
+                logo_url: "", 
+                brand_color: "#1B4332", 
+                currency: "usd", 
+                phone: "", 
+                map_title: "", 
+                promo_button_text: "",
+                hq_greeting: "" // 💡 Added the missing property here
+              });
               setEmail("");
               setSuccessUrl(null);
               setCopied(false);
@@ -825,6 +839,10 @@ function OnboardDisSection() {
             <input className={inputClass} value={form.promo_button_text} onChange={e => setForm({...form, promo_button_text: e.target.value})} placeholder="e.g., Get 15% Off" />
           </Field>
         </div>
+
+          <Field label="HQ Map Greeting Message (Optional)">
+            <textarea className={inputClass} rows={2} value={form.hq_greeting} onChange={e => setForm({...form, hq_greeting: e.target.value})} placeholder="Welcome to our partner headquarters! Drop in to..." />
+          </Field>
 
         <button type="submit" disabled={loading} className="w-full py-3 text-white font-bold rounded-lg transition-all hover:opacity-90 disabled:opacity-50 shadow-md" style={{ backgroundColor: "#1B4332" }}>
           {loading ? "Connecting to Payment Gateway..." : "Authorize and Allocate Map Subdomain Space"}
@@ -1204,7 +1222,8 @@ function DistributorForm({ onClose, onSaved }: { onClose: () => void; onSaved: (
     brand_color: "#1B4332",
     phone: "", 
     map_title: "",        
-    promo_button_text: "", 
+    promo_button_text: "",
+    hq_greeting: "", 
   });
   const [email, setEmail] = useState(""); 
   const slug = slugify(form.name);
@@ -1226,7 +1245,8 @@ function DistributorForm({ onClose, onSaved }: { onClose: () => void; onSaved: (
       if (form.logo_url) body.logo_url = form.logo_url;
       if (form.phone) body.phone = form.phone;
       if (form.map_title) body.map_title = form.map_title;                 
-      if (form.promo_button_text) body.promo_button_text = form.promo_button_text; 
+      if (form.promo_button_text) body.promo_button_text = form.promo_button_text;
+      if (form.hq_greeting) body.hq_greeting = form.hq_greeting; 
 
       const r = await authFetch(`/distributors/`, {
         method: "POST",
@@ -1524,7 +1544,8 @@ function EditDistributorForm({
     brand_color: distributor.brand_color ?? "#1B4332",
     phone: (distributor as any).phone ?? "", 
     map_title: distributor.map_title ?? "",               
-    promo_button_text: distributor.promo_button_text ?? "", 
+    promo_button_text: distributor.promo_button_text ?? "",
+    hq_greeting: distributor.hq_greeting ?? "", 
     is_active: !!distributor.active,
   };
   const [form, setForm] = useState(initial);
@@ -1551,6 +1572,7 @@ function EditDistributorForm({
       if (email !== ((distributor as any).email ?? "")) body.email = email || null; 
       if (form.map_title !== initial.map_title) body.map_title = form.map_title;                 
       if (form.promo_button_text !== initial.promo_button_text) body.promo_button_text = form.promo_button_text; 
+      if (form.hq_greeting !== initial.hq_greeting) body.hq_greeting = form.hq_greeting;
       if (form.is_active !== initial.is_active) body.is_active = form.is_active;
 
       if (Object.keys(body).length === 0) {
@@ -1616,6 +1638,9 @@ function EditDistributorForm({
         </Field>
         <Field label="Promo Button Text (Optional)">
           <input className={inputClass} value={form.promo_button_text} onChange={(e) => setForm({ ...form, promo_button_text: e.target.value })} placeholder="Get 15% Off" />
+        </Field>
+        <Field label="HQ Map Greeting Message (Optional)">
+          <textarea className={inputClass} rows={2} value={form.hq_greeting} onChange={(e) => setForm({ ...form, hq_greeting: e.target.value })} placeholder="Welcome to our partner headquarters!..." />
         </Field>
 
         <label className="flex items-center gap-2 text-sm text-gray-700">
