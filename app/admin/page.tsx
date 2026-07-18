@@ -15,30 +15,75 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 
 const TOKEN_KEY = "urbandog_admin_token";
 const API_BASE = "https://urbandog-production.up.railway.app/api/v1";
-const STRIPE_LINKS: Record<string, Record<string, string>> = {
-  "ad_cfs_z": {
-    usd: "https://buy.stripe.com/test_14A8wO4Mn1RlcTtaND5ZC03",
-    cad: "https://buy.stripe.com/test_00w4gy1AbanR9Hh2h75ZC02"
+
+// Moved to the top to resolve all block-scope declaration errors
+const inputClass = "w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black bg-white outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900 transition-colors";
+
+// 💡 Environment gate mapping per spec layout logic
+const STRIPE_ENV = process.env.NEXT_PUBLIC_STRIPE_ENV === "live" ? "live" : "test";
+
+const STRIPE_LINKS: Record<string, Record<string, Record<string, string>>> = {
+  test: {
+    "ad_cfs_z": {
+      usd: "https://buy.stripe.com/test_14A8wO4Mn1RlcTtaND5ZC03",
+      cad: "https://buy.stripe.com/test_00w4gy1AbanR9Hh2h75ZC02"
+    },
+    "ad_cfs_x": {
+      usd: "https://buy.stripe.com/test_fZucN4baL3Zt7z908Z5ZC07",
+      cad: "https://buy.stripe.com/test_5kQ4gyemX0Nh9Hh4pf5ZC08"
+    },
+    "ad_grm_z": {
+      usd: "https://buy.stripe.com/test_4gM7sKcePdA306H2h75ZC09",
+      cad: "https://buy.stripe.com/test_7sYeVc7YzfIb06H8Fv5ZC01"
+    },
+    "ad_grm_x": {
+      usd: "https://buy.stripe.com/test_7sY14m92DbrVg5Fg7X5ZC0a",
+      cad: "https://buy.stripe.com/test_00weVc7Yz8fJ1aLaND5ZC0b"
+    },
+    "bnr_wk": {
+      usd: "https://buy.stripe.com/test_5kQ28q4MnfIb2eP08Z5ZC06",
+      cad: "https://buy.stripe.com/test_fZu8wO1AbanRcTtcVL5ZC04"
+    },
+    "furstops_license": {
+      usd: "https://buy.stripe.com/test_9B67sK5Qr0Nhf1Bf3T5ZC0c",
+      cad: "https://buy.stripe.com/test_4gM8wOa6HdA3f1B6xn5ZC00"
+    }
   },
-  "ad_cfs_x": {
-    usd: "https://buy.stripe.com/test_fZucN4baL3Zt7z908Z5ZC07",
-    cad: "https://buy.stripe.com/test_5kQ4gyemX0Nh9Hh4pf5ZC08"
-  },
-  "ad_grm_z": {
-    usd: "https://buy.stripe.com/test_4gM7sKcePdA306H2h75ZC09",
-    cad: "https://buy.stripe.com/test_7sYeVc7YzfIb06H8Fv5ZC01"
-  },
-  "ad_grm_x": {
-    usd: "https://buy.stripe.com/test_7sY14m92DbrVg5Fg7X5ZC0a",
-    cad: "https://buy.stripe.com/test_00weVc7Yz8fJ1aLaND5ZC0b"
-  },
-  "bnr_wk": {
-    usd: "https://buy.stripe.com/test_5kQ28q4MnfIb2eP08Z5ZC06",
-    cad: "https://buy.stripe.com/test_fZu8wO1AbanRcTtcVL5ZC04"
-  },
-  "furstops_license": {
-    usd: "https://buy.stripe.com/test_9B67sK5Qr0Nhf1Bf3T5ZC0c",
-    cad: "https://buy.stripe.com/test_4gM8wOa6HdA3f1B6xn5ZC00"
+  live: {
+    // Cafe & Patio / Dining — GOLD Tier
+    "ad_cfs_z": {
+      usd: "https://buy.stripe.com/cNi3cx8TOdew7k6dP7grS01",
+      cad: "https://buy.stripe.com/6oU00l3zu6Q80VI12lgrS0b"
+    },
+    // Cafe & Patio / Dining — SILVER Tier
+    "ad_cfs_x": {
+      usd: "https://buy.stripe.com/6oUeVf4DygqI47Uh1jgrS02",
+      cad: "https://buy.stripe.com/3cI14p8TO8Yg6g2cL3grS06"
+    },
+    // Groomers & Sitters — GOLD Tier
+    "ad_grm_z": {
+      usd: "https://buy.stripe.com/dRm7sNc607UcdIu7qJgrS05",
+      cad: "https://buy.stripe.com/fZu6oJ6LG0rK8oadP7grS08"
+    },
+    // Groomers & Sitters — SILVER Tier
+    "ad_grm_x": {
+      usd: "https://buy.stripe.com/9B67sNfic7UcdIubGZgrS03",
+      cad: "https://buy.stripe.com/fZuaEZfic6Q833Q4exgrS0a"
+    },
+    // Seasonal Map Banners (Weekly)
+    "bnr_wk": {
+      usd: "https://buy.stripe.com/dRmaEZda43DWfQC5iBgrS07",
+      cad: "https://buy.stripe.com/8x2cN77PK7Uc8oa7qJgrS04"
+    },
+    // Pet Store Map Franchise License (Distributor)
+    "furstops_license": {
+      usd: "https://buy.stripe.com/4gM8wR0ni5M4awih1jgrS0c",
+      cad: "https://buy.stripe.com/eVq6oJ8TOb6o1ZMeTbgrS0d"
+    },
+    // Live Test Only (Distributor)
+    "live_test": {
+      cad: "https://buy.stripe.com/4gMeVfgmgfmE5bY5iBgrS0f"
+    }
   }
 };
 
@@ -89,6 +134,7 @@ function useFetch<T>(path: string | null, deps: unknown[] = []) {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [path, tick, ...deps]);
 
   const refetch = async () => {
@@ -394,7 +440,6 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   );
 }
 
-// Component 1: OnboardAdSection Updated
 function OnboardAdSection() {
   const { data: distData } = useFetch<any>("/distributors/");
   const distributors = asArray<Distributor>(distData);
@@ -409,7 +454,7 @@ function OnboardAdSection() {
     tier: "silver",
     currency: "usd",
   });
-  const [email, setEmail] = useState(""); // 💡 1. Initialized Email state hook
+  const [email, setEmail] = useState(""); 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<boolean>(false);
@@ -426,7 +471,7 @@ function OnboardAdSection() {
         address_string: form.address,
         phone: form.phone || undefined,
         website_url: form.website_url || undefined,
-        email: email || null, // 💡 2. Payload mapped
+        email: email || null, 
         insider_tip: form.insider_tip || undefined,
         tier: form.tier,
       };
@@ -460,7 +505,8 @@ function OnboardAdSection() {
         skuKey = isGold ? "ad_cfs_z" : "ad_cfs_x"; 
       }
       
-      const targetUrl = STRIPE_LINKS[skuKey]?.[form.currency];
+      // 💡 Context-driven Stripe layer lookup dynamically references STRIPE_ENV
+      const targetUrl = STRIPE_LINKS[STRIPE_ENV][skuKey]?.[form.currency];
       if (!targetUrl) {
          throw new Error("No secure Stripe checkout link configuration exists for this combination.");
       }
@@ -549,14 +595,13 @@ function OnboardAdSection() {
           </Field>
         </div>
 
-        {/* 💡 3. Pasted HTML Layout Input elements */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="ad-email" className="block text-sm font-medium text-gray-700">
               Partner Email Address (For Portal Login)
             </label>
             <input
-              id="email"
+              id="ad-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -586,7 +631,6 @@ function OnboardAdSection() {
   );
 }
 
-// Component 2: OnboardDisSection Updated
 function OnboardDisSection() {
   const [form, setForm] = useState({
     name: "",
@@ -599,7 +643,7 @@ function OnboardDisSection() {
     map_title: "",        
     promo_button_text: "", 
   });
-  const [email, setEmail] = useState(""); // 💡 1. Initialized Email state hook
+  const [email, setEmail] = useState(""); 
   const [loading, setLoading] = useState(false);
   const [successUrl, setSuccessUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -620,7 +664,7 @@ function OnboardDisSection() {
         website_url: form.website_url || undefined,
         logo_url: form.logo_url || undefined,
         phone: form.phone || undefined, 
-        email: email || null, // 💡 2. Payload mapped
+        email: email || null, 
         map_title: form.map_title || undefined,               
         promo_button_text: form.promo_button_text || undefined, 
       };
@@ -632,7 +676,8 @@ function OnboardDisSection() {
       if (!res.ok) throw new Error(`Distributor save processing failed with code: ${res.status}`);
       const savedDistributor = await res.json();
       
-      const targetUrl = STRIPE_LINKS["furstops_license"]?.[form.currency];
+      // 💡 Context-driven Stripe layer lookup dynamically nests down through STRIPE_ENV
+      const targetUrl = STRIPE_LINKS[STRIPE_ENV]["furstops_license"]?.[form.currency];
       if (!targetUrl) {
          throw new Error("No secure checkout routing configured for this currency.");
       }
@@ -757,13 +802,12 @@ function OnboardDisSection() {
           <Field label="Corporate Contact Phone Number (Optional)">
             <input className={inputClass} value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} placeholder="(555) 000-0000" />
           </Field>
-          {/* 💡 3. Pasted HTML Layout Input element */}
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="dis-email" className="block text-sm font-medium text-gray-700">
               Partner Email Address (For Portal Login)
             </label>
             <input
-              id="email"
+              id="dis-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -1151,7 +1195,6 @@ function DistributorsSection() {
   );
 }
 
-// Component 3: DistributorForm Updated
 function DistributorForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const [form, setForm] = useState({
     name: "",
@@ -1163,7 +1206,7 @@ function DistributorForm({ onClose, onSaved }: { onClose: () => void; onSaved: (
     map_title: "",        
     promo_button_text: "", 
   });
-  const [email, setEmail] = useState(""); // 💡 1. Initialized Email state hook
+  const [email, setEmail] = useState(""); 
   const slug = slugify(form.name);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -1172,12 +1215,12 @@ function DistributorForm({ onClose, onSaved }: { onClose: () => void; onSaved: (
     setSaving(true);
     setErr(null);
     try {
-      const body: Record<string, unknown> = {
+      const body: Record<string, any> = {
         name: form.name,
         slug,
         address_string: form.address,
         brand_color_hex: form.brand_color,
-        email: email || null, // 💡 2. Payload mapped
+        email: email || null, 
       };
       if (form.website_url) body.website_url = form.website_url;
       if (form.logo_url) body.logo_url = form.logo_url;
@@ -1217,13 +1260,12 @@ function DistributorForm({ onClose, onSaved }: { onClose: () => void; onSaved: (
           <input className={inputClass} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="(555) 000-0000" />
         </Field>
         
-        {/* 💡 3. Pasted HTML Layout Input element */}
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="form-dis-email" className="block text-sm font-medium text-gray-700">
             Partner Email Address (For Portal Login)
           </label>
           <input
-            id="email"
+            id="form-dis-email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -1465,7 +1507,6 @@ function AdvertisersSection() {
   );
 }
 
-// Component 4: EditDistributorForm Updated
 function EditDistributorForm({
   distributor,
   onClose,
@@ -1487,7 +1528,7 @@ function EditDistributorForm({
     is_active: !!distributor.active,
   };
   const [form, setForm] = useState(initial);
-  const [email, setEmail] = useState((distributor as any).email ?? ""); // 💡 1. Initialized Email state hook
+  const [email, setEmail] = useState((distributor as any).email ?? ""); 
   const slug = slugify(form.name);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -1497,7 +1538,7 @@ function EditDistributorForm({
     setSaving(true);
     setErr(null);
     try {
-      const body: Record<string, unknown> = {};
+      const body: Record<string, any> = {};
       if (form.name !== initial.name) {
         body.name = form.name;
         if (slug !== distributor.slug) body.slug = slug;
@@ -1507,7 +1548,7 @@ function EditDistributorForm({
       if (form.logo_url !== initial.logo_url) body.logo_url = form.logo_url;
       if (form.brand_color !== initial.brand_color) body.brand_color_hex = form.brand_color;
       if (form.phone !== initial.phone) body.phone = form.phone;
-      if (email !== ((distributor as any).email ?? "")) body.email = email || null; // 💡 2. Payload mapped
+      if (email !== ((distributor as any).email ?? "")) body.email = email || null; 
       if (form.map_title !== initial.map_title) body.map_title = form.map_title;                 
       if (form.promo_button_text !== initial.promo_button_text) body.promo_button_text = form.promo_button_text; 
       if (form.is_active !== initial.is_active) body.is_active = form.is_active;
@@ -1549,13 +1590,12 @@ function EditDistributorForm({
           <input className={inputClass} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="(555) 000-0000" />
         </Field>
 
-        {/* 💡 3. Pasted HTML Layout Input element */}
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="edit-dis-email" className="block text-sm font-medium text-gray-700">
             Partner Email Address (For Portal Login)
           </label>
           <input
-            id="email"
+            id="edit-dis-email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -1594,7 +1634,6 @@ function EditDistributorForm({
   );
 }
 
-// Component 5: AdvertiserForm Updated
 function AdvertiserForm({
   distributors,
   advertiser,
@@ -1618,7 +1657,7 @@ function AdvertiserForm({
     tier: advertiser?.tier || "silver",
   };
   const [form, setForm] = useState(initial);
-  const [email, setEmail] = useState((advertiser as any)?.email || ""); // 💡 1. Initialized Email state hook
+  const [email, setEmail] = useState((advertiser as any)?.email || ""); 
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -1638,7 +1677,7 @@ function AdvertiserForm({
             body[toPayloadKey(k as string)] = form[k];
           }
         });
-        if (email !== ((advertiser as any)?.email || "")) body.email = email || null; // 💡 2. Payload mapped on edits
+        if (email !== ((advertiser as any)?.email || "")) body.email = email || null; 
         if (Object.keys(body).length === 0) {
           skipSave = true;
         }
@@ -1649,7 +1688,7 @@ function AdvertiserForm({
           address_string: form.address,
           phone: form.phone || undefined,
           website_url: form.website_url || undefined,
-          email: email || null, // 💡 2. Payload mapped on creates
+          email: email || null, 
           insider_tip: form.insider_tip || undefined,
           tier: form.tier,
         };
@@ -1718,13 +1757,12 @@ function AdvertiserForm({
           </Field>
         </div>
 
-        {/* 💡 3. Pasted HTML Layout Input element */}
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="form-ad-email" className="block text-sm font-medium text-gray-700">
             Partner Email Address (For Portal Login)
           </label>
           <input
-            id="email"
+            id="form-ad-email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -1911,7 +1949,7 @@ function AlertsSection() {
     try {
       await authFetch(`/alerts/${a.id}/activate?is_active=${!a.active}`, { method: "PATCH" });
       refetch();
-    } catch {
+    } finally {
       setBusyId(null);
     }
   };
@@ -2222,8 +2260,6 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     </label>
   );
 }
-
-const inputClass = "w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black bg-white outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900 transition-colors";
 
 function slugify(name: string) {
   return name
