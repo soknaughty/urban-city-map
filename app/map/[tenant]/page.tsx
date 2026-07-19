@@ -32,18 +32,19 @@ const ORANGE = "#F97316";
 
 type Category = "patio" | "park" | "vet" | "dvm" | "groomer" | "daycare";
 
+// 💡 REARRANGE THIS ARRAY TO CHANGE THE FILTER BUTTON ORDER ON YOUR SCREEN
 const CATEGORIES: {
   key: Category;
   label: string;
   emoji: string;
   color: string;
 }[] = [
-  { key: "patio", label: "Patios & Cafes", emoji: "🐾", color: GOLD },
   { key: "park", label: "Parks & Off-Leash", emoji: "🌳", color: SKY },
   { key: "vet", label: "24/7 Emergency Vets", emoji: "✚", color: RED },
   { key: "dvm", label: "Veterinarians", emoji: "🩺", color: TEAL },
   { key: "groomer", label: "Groomers, Sitters & More", emoji: "✂️", color: PURPLE },
   { key: "daycare", label: "Doggie Daycares", emoji: "🐶", color: ORANGE },
+  { key: "patio", label: "Patios & Cafes", emoji: "🐾", color: GOLD },
 ];
 
 const API_TO_CAT: Record<string, Category> = {
@@ -76,8 +77,10 @@ export default function TenantMapPortal({ params }: PageProps) {
     distributor_name?: string;
     distributor_id?: string;
     brand_color_hex?: string | null;
-    map_title?: string | null;          // 💡 Dynamic branding asset fields
-    promo_button_text?: string | null;  // 💡 Dynamic branding asset fields
+    map_title?: string | null;          
+    promo_button_text?: string | null;  
+    address_string?: string | null; 
+    hq_greeting?: string | null;    
   }>({});
   const brandColor = metadata.brand_color_hex || FOREST;
   const distributorName = metadata.distributor_name || "Barks & Bones";
@@ -206,8 +209,10 @@ export default function TenantMapPortal({ params }: PageProps) {
           distributor_name: data?.distributor_name ?? data?.metadata?.distributor_name,
           distributor_id: data?.distributor_id ?? data?.metadata?.distributor_id,
           brand_color_hex: data?.brand_color_hex ?? data?.metadata?.brand_color_hex ?? null,
-          map_title: data?.map_title ?? data?.metadata?.map_title ?? null,                    // 💡 Map metadata hooks
-          promo_button_text: data?.promo_button_text ?? data?.metadata?.promo_button_text ?? null, // 💡 Map metadata hooks
+          map_title: data?.map_title ?? data?.metadata?.map_title ?? null,                    
+          promo_button_text: data?.promo_button_text ?? data?.metadata?.promo_button_text ?? null, 
+          address_string: data?.address_string ?? data?.metadata?.address_string ?? null, 
+          hq_greeting: data?.hq_greeting ?? data?.metadata?.hq_greeting ?? null,         
         });
         const cLng = data?.center_lng ?? data?.metadata?.center_lng;
         const cLat = data?.center_lat ?? data?.metadata?.center_lat;
@@ -311,12 +316,13 @@ export default function TenantMapPortal({ params }: PageProps) {
       
       el.addEventListener("click", (e) => {
         e.stopPropagation();
+        // 💡 Clear fallback string so if it's blank in the dashboard, it is truly blank here
         setSelected({
           id: "distributor-hq",
           cat: "patio",
           name: distributorName,
-          distance: "Host Storefront Base",
-          tip: "Welcome to our partner headquarters! Drop in to pick up supplies, check local bulletin logs, or ask about network benefits.",
+          distance: metadata.address_string || "No address listed", 
+          tip: metadata.hq_greeting || "", 
           lng: center[0],
           lat: center[1],
           tier: "gold"
@@ -353,7 +359,7 @@ export default function TenantMapPortal({ params }: PageProps) {
         .addTo(map);
       markersRef.current.push(marker);
     });
-  }, [visible, center, isRoot, distributorName, brandColor, mapLoaded]);
+  }, [visible, center, isRoot, distributorName, brandColor, mapLoaded, metadata.address_string, metadata.hq_greeting]);
 
   const openDirections = () => {
     if (!selected) return;
@@ -432,10 +438,8 @@ export default function TenantMapPortal({ params }: PageProps) {
         <div className="mx-auto flex max-w-md items-center gap-3 px-4 py-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-lg ring-1 ring-white/20">🦴</div>
           
-          {/* ── FIXED branding context panel header ──────────────────────── */}
           <div className="min-w-0 flex-1 flex flex-col">
             <span className="text-[11px] font-bold uppercase tracking-wider text-amber-300">
-              {/* 💡 Replaced hardcoded text with dynamic map_title */}
               {metadata?.map_title || "DOWNTOWN DOG GUIDE"}
             </span>
             <p className="truncate text-[12px] leading-tight text-white/90">
@@ -443,8 +447,6 @@ export default function TenantMapPortal({ params }: PageProps) {
             </p>
           </div>
           
-          {/* ── FIXED dynamic premium promo banner button trigger layout ── */}
-          {/* 💡 The button will now only render if the partner provided text */}
           {metadata?.promo_button_text && (
             <button className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-[11px] font-bold text-slate-900 shadow-md transition-all hover:scale-[1.04] active:scale-95 bg-amber-400">
               <Tag className="h-3 w-3" />
@@ -519,10 +521,14 @@ export default function TenantMapPortal({ params }: PageProps) {
                 {selected.tier === "gold" && selected.logo_url ? (
                   <img src={selected.logo_url} alt={`${selected.name} logo`} className="h-14 w-14 shrink-0 rounded-2xl object-cover shadow-md ring-2" style={{ borderColor: "#FCD34D", boxShadow: "0 6px 16px -4px rgba(252,211,77,0.6)" }} />
                 ) : (
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-xl text-white shadow-md" style={{ backgroundColor: catMeta(selected.cat).color }}>{catMeta(selected.cat).emoji}</div>
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-xl text-white shadow-md" style={{ backgroundColor: selected.id === "distributor-hq" ? brandColor : catMeta(selected.cat).color }}>
+                    {selected.id === "distributor-hq" ? "🏪" : catMeta(selected.cat).emoji}
+                  </div>
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: TEAL }}>{catMeta(selected.cat).label}</p>
+                  <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: TEAL }}>
+                    {selected.id === "distributor-hq" ? "Host Storefront" : catMeta(selected.cat).label}
+                  </p>
                   <h2 className="mt-0.5 text-xl font-extrabold leading-tight text-slate-900">{selected.name}</h2>
                   {(selected.address || selected.distance) && (
                     <p className="mt-1 flex items-center gap-1 text-[13px] font-medium text-slate-600">
@@ -548,7 +554,8 @@ export default function TenantMapPortal({ params }: PageProps) {
                 <button onClick={() => setSelected(null)} className="rounded-full p-1.5 text-slate-500 hover:bg-slate-100" aria-label="Close"><X className="h-5 w-5" /></button>
               </div>
               
-              {selected.tier === "gold" && (selected.tip || selected.tip_image_url) && (
+              {/* 💡 ENHANCED UPSELL RULE: Container completely self-destructs if there is no string greeting text or logo image layout passed */}
+              {(selected.tip || selected.tip_image_url) && (selected.id === "distributor-hq" || selected.tier === "gold") && (
                 <div className="mt-5 rounded-2xl border-2 p-4" style={{ borderColor: FOREST + "1F", backgroundColor: "#F0FDF4" }}>
                   {selected.tip && <p className="text-[14px] leading-relaxed text-slate-800">{selected.tip}</p>}
                   {selected.tip_image_url && (
