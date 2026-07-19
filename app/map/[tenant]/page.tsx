@@ -211,7 +211,7 @@ export default function TenantMapPortal({ params }: PageProps) {
           brand_color_hex: data?.brand_color_hex ?? data?.metadata?.brand_color_hex ?? null,
           map_title: data?.map_title ?? data?.metadata?.map_title ?? null,                    
           promo_button_text: data?.promo_button_text ?? data?.metadata?.promo_button_text ?? null, 
-          address_string: data?.address_string ?? data?.metadata?.address_string ?? null, 
+          address_string: data?.address_string ?? data?.metadata?.address_string ?? data?.address ?? data?.metadata?.address ?? null, 
           hq_greeting: data?.hq_greeting ?? data?.metadata?.hq_greeting ?? null,         
         });
         const cLng = data?.center_lng ?? data?.metadata?.center_lng;
