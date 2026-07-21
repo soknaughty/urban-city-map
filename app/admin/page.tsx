@@ -1341,8 +1341,16 @@ function AdvertisersSection() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [selectedDistributor, setSelectedDistributor] = useState<string>("");
 
+  // Bulk & Import State
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDistributorId, setBulkDistributorId] = useState<string>("");
+  const [isImporting, setIsImporting] = useState(false);
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+  const [actionMessage, setActionMessage] = useState<{type: "error" | "success", text: string} | null>(null);
+
   const distMap = new Map<string, Distributor>();
   distributors.forEach((d) => distMap.set(String(d.id), d));
+
   const getDistributorsFor = (a: Advertiser): Distributor[] => {
     const ids: string[] = [];
     const anyA = a as any;
@@ -1351,6 +1359,7 @@ function AdvertisersSection() {
     else if (a.distributor_id) ids.push(String(a.distributor_id));
     return ids.map((id) => distMap.get(id)).filter(Boolean) as Distributor[];
   };
+
   const toggle = async (a: Advertiser) => {
     setBusyId(a.id);
     try {
@@ -1360,6 +1369,103 @@ function AdvertisersSection() {
       setBusyId(null);
     }
   };
+
+  const deleteAdvertiser = async (id: string) => {
+    if (!confirm("Are you sure you want to permanently delete this map location? This cannot be undone.")) return;
+    setBusyId(id);
+    try {
+      const res = await authFetch(`/advertisers/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete record.");
+      setActionMessage({ type: "success", text: "Location deleted successfully." });
+      refetch();
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    } catch (e: any) {
+      setActionMessage({ type: "error", text: e.message || "Failed to delete location." });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setIsImporting(true);
+    setActionMessage(null);
+    
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      // Intentionally omitting Content-Type so the browser sets the multi-part boundary correctly
+      const res = await authFetch("/advertisers/bulk-import", {
+        method: "POST",
+        body: formData,
+      });
+      
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Import failed.");
+      
+      setActionMessage({ type: "success", text: `Successfully imported ${data.imported_count || 0} locations.` });
+      refetch();
+    } catch (err: any) {
+      setActionMessage({ type: "error", text: err.message || "An error occurred during import." });
+    } finally {
+      setIsImporting(false);
+      // Reset input so the same file can be uploaded again if needed
+      e.target.value = '';
+    }
+  };
+
+  const handleBulkActivate = async () => {
+    if (selectedIds.size === 0 || !bulkDistributorId) return;
+    setIsBulkUpdating(true);
+    setActionMessage(null);
+    try {
+      const res = await authFetch("/advertisers/bulk-update", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          advertiser_ids: Array.from(selectedIds),
+          distributor_id: bulkDistributorId
+        })
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Bulk update failed.");
+
+      setActionMessage({ type: "success", text: `Successfully activated and assigned ${data.activated_count || 0} locations.` });
+      setSelectedIds(new Set());
+      setBulkDistributorId("");
+      refetch();
+    } catch (err: any) {
+      setActionMessage({ type: "error", text: err.message || "Bulk update failed." });
+    } finally {
+      setIsBulkUpdating(false);
+    }
+  };
+
+  const toggleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(new Set(filteredAdvertisers.map(a => a.id)));
+    } else {
+      setSelectedIds(new Set());
+    }
+  };
+
+  const toggleSelectOne = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   const filteredAdvertisers = useMemo(() => {
     if (selectedDistributor === "") return advertisers;
     if (selectedDistributor === "unassigned") {
@@ -1372,20 +1478,28 @@ function AdvertisersSection() {
     });
   }, [advertisers, selectedDistributor]);
 
+  const allSelected = filteredAdvertisers.length > 0 && selectedIds.size === filteredAdvertisers.length;
+
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {actionMessage && (
+        <div className={`p-4 rounded-lg text-sm font-medium ${actionMessage.type === 'success' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
+          {actionMessage.text}
+        </div>
+      )}
+
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50 p-4 rounded-lg border border-slate-200">
         <div className="flex items-center gap-4">
-          <p className="text-sm text-gray-500">
-            <span className="font-semibold">{filteredAdvertisers.length}</span> displayed ({advertisers.length} total)
+          <p className="text-sm text-gray-500 whitespace-nowrap">
+            <span className="font-semibold">{filteredAdvertisers.length}</span> listed
           </p>
           <select
             value={selectedDistributor}
             onChange={(e) => setSelectedDistributor(e.target.value)}
-            className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm shadow-sm focus:border-[#1B4332] focus:outline-none text-black"
+            className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-[#1B4332] focus:outline-none text-black min-w-[200px]"
           >
-            <option value="">All Distributors</option>
-            <option value="unassigned">Unassigned / Direct Root</option>
+            <option value="">All Distributors (Global)</option>
+            <option value="unassigned">Unassigned / Inactive</option>
             {distributors.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.name} ({d.slug})
@@ -1393,47 +1507,73 @@ function AdvertisersSection() {
             ))}
           </select>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setShowMiscForm(true)}
-            className="rounded-md px-4 py-2 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-300 transition-colors"
-          >
-            + Add Miscellaneous
+        <div className="flex flex-wrap gap-2">
+          <label className="cursor-pointer rounded-md px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 transition-colors shadow-sm flex items-center justify-center min-w-[120px]">
+            {isImporting ? "Importing..." : "⬇️ Import CSV"}
+            <input type="file" accept=".csv" className="hidden" onChange={handleFileUpload} disabled={isImporting} />
+          </label>
+          <button onClick={() => setShowMiscForm(true)} className="rounded-md px-4 py-2 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-300 transition-colors shadow-sm">
+            + Quick Add
           </button>
-          <button
-            onClick={() => useStateForm(true)}
-            className="rounded-md px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
-            style={{ backgroundColor: "#1B4332" }}
-          >
-            + Add Advertiser
+          <button onClick={() => useStateForm(true)} className="rounded-md px-4 py-2 text-sm font-semibold text-white hover:opacity-90 shadow-sm" style={{ backgroundColor: "#1B4332" }}>
+            + Full Onboard
           </button>
         </div>
       </div>
 
+      {selectedIds.size > 0 && (
+        <div className="flex items-center justify-between bg-amber-50 border border-amber-200 p-3 rounded-lg animate-in fade-in slide-in-from-top-2">
+          <div className="text-sm font-semibold text-amber-900">
+            {selectedIds.size} locations selected
+          </div>
+          <div className="flex items-center gap-3">
+            <select 
+              className="rounded-md border border-amber-300 bg-white px-3 py-1.5 text-sm shadow-sm focus:border-amber-500 focus:outline-none text-black w-64"
+              value={bulkDistributorId}
+              onChange={(e) => setBulkDistributorId(e.target.value)}
+            >
+              <option value="">— Select Target Map Distributor —</option>
+              {distributors.map((d) => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
+            <button 
+              onClick={handleBulkActivate}
+              disabled={isBulkUpdating || !bulkDistributorId}
+              className="rounded-md bg-amber-600 px-4 py-1.5 text-sm font-bold text-white hover:bg-amber-700 transition-colors disabled:opacity-50"
+            >
+              {isBulkUpdating ? "Activating..." : "Assign & Activate"}
+            </button>
+          </div>
+        </div>
+      )}
+
       {error && <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
 
-      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
         <table className="min-w-full text-sm">
-          <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+          <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 border-b border-gray-200">
             <tr>
+              <th className="px-4 py-3 w-10">
+                <input type="checkbox" checked={allSelected} onChange={(e) => toggleSelectAll(e.target.checked)} className="rounded border-gray-300 text-[#1B4332] focus:ring-[#1B4332]" />
+              </th>
               <th className="px-4 py-3">Business Name</th>
               <th className="px-4 py-3">Category</th>
               <th className="px-4 py-3">Address</th>
               <th className="px-4 py-3">Distributor</th>
-              <th className="px-4 py-3">Tier</th>
-              <th className="px-4 py-3">Active</th>
+              <th className="px-4 py-3 text-center">Active</th>
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {loading && (
               <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-gray-500">Loading…</td>
+                <td colSpan={8} className="px-4 py-8 text-center text-gray-500">Loading map directory...</td>
               </tr>
             )}
             {!loading && filteredAdvertisers.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-gray-500">No active advertisers are assigned.</td>
+                <td colSpan={8} className="px-4 py-8 text-center text-gray-500">No locations found.</td>
               </tr>
             )}
             {filteredAdvertisers.map((a) => {
@@ -1444,51 +1584,57 @@ function AdvertisersSection() {
                   ? `http://${distributorSlug}.localhost:3000?admin=1`
                   : `https://${distributorSlug}.furstops.com?admin=1`
                 : "";
-              const tierString = String(a.tier || "").toLowerCase().trim();
-              const tierMarker = tierString === "gold" ? "G" : tierString === "silver" ? "S" : "●";
 
               return (
-                <tr key={a.id}>
+                <tr key={a.id} className={selectedIds.has(a.id) ? "bg-amber-50/50" : "hover:bg-slate-50 transition-colors"}>
+                  <td className="px-4 py-3">
+                    <input 
+                      type="checkbox" 
+                      checked={selectedIds.has(a.id)} 
+                      onChange={() => toggleSelectOne(a.id)}
+                      className="rounded border-gray-300 text-[#1B4332] focus:ring-[#1B4332]" 
+                    />
+                  </td>
                   <td className="px-4 py-3 font-medium text-gray-900">{a.business_name}</td>
-                  <td className="px-4 py-3 text-gray-600">{a.category}</td>
-                  <td className="px-4 py-3 text-gray-600 max-w-[200px]">
-                    {a.address ? (
-                      <TooltipProvider delayDuration={150}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="block truncate cursor-help">{a.address}</span>
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-xs break-words">{a.address}</TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    ) : (
-                      <span className="text-gray-400 italic">—</span>
-                    )}
+                  <td className="px-4 py-3 text-gray-600 capitalize">{a.category}</td>
+                  <td className="px-4 py-3 text-gray-600 max-w-[200px] truncate" title={a.address}>
+                    {a.address || <span className="text-gray-400 italic">—</span>}
                   </td>
                   <td className="px-4 py-3 text-gray-600">
                     {(a as any).distributor_name && (a as any).distributor_name !== "Unassigned" ? (
-                      (a as any).distributor_name
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-800">
+                        {(a as any).distributor_name}
+                      </span>
                     ) : advDists.length > 0 ? (
-                      advDists.map((d) => d.name).join(", ")
+                      advDists.map((d) => (
+                        <span key={d.id} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-800 mr-1 mb-1">
+                          {d.name}
+                        </span>
+                      ))
                     ) : (
-                      <span className="text-gray-400 italic">Unassigned</span>
+                      <span className="text-gray-400 italic text-xs">Unassigned</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 font-bold text-gray-700">
-                    {tierMarker === "●" ? <span className="text-black text-xs">●</span> : tierMarker}
-                  </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 text-center">
                     <Badge active={!!a.active} />
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <div className="flex justify-end gap-2">
-                      <button disabled={busyId === a.id} onClick={() => toggle(a)} className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-50 disabled:opacity-50 text-gray-700 bg-white">{a.active ? "Deactivate" : "Activate"}</button>
-                      <button onClick={() => setEditing(a)} className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-50 text-gray-700 bg-white">Edit</button>
-                      {mapHref ? (
-                        <a href={mapHref} target="_blank" rel="noopener noreferrer" className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-50 text-gray-700 bg-white">View Map</a>
-                      ) : (
-                        <span className="text-xs text-gray-400 italic px-3 py-1">No Map</span>
+                    <div className="flex justify-end items-center gap-2">
+                      <button disabled={busyId === a.id} onClick={() => toggle(a)} className="rounded border border-gray-300 px-2 py-1 text-xs font-medium hover:bg-gray-50 disabled:opacity-50 text-gray-700 bg-white">
+                        {a.active ? "Deactivate" : "Activate"}
+                      </button>
+                      <button onClick={() => setEditing(a)} className="rounded border border-gray-300 px-2 py-1 text-xs font-medium hover:bg-gray-50 text-gray-700 bg-white">Edit</button>
+                      {mapHref && (
+                        <a href={mapHref} target="_blank" rel="noopener noreferrer" className="rounded border border-gray-300 px-2 py-1 text-xs font-medium hover:bg-emerald-50 text-[#1B4332] bg-white">Map</a>
                       )}
+                      <button 
+                        disabled={busyId === a.id} 
+                        onClick={() => deleteAdvertiser(a.id)} 
+                        className="rounded border border-red-200 px-2 py-1 text-xs font-medium hover:bg-red-50 disabled:opacity-50 text-red-600 bg-white transition-colors"
+                        title="Delete Permanently"
+                      >
+                        ✕
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -1499,25 +1645,11 @@ function AdvertisersSection() {
       </div>
 
       {showForm && (
-        <AdvertiserForm
-          distributors={distributors}
-          onClose={() => useStateForm(false)}
-          onSaved={() => {
-            useStateForm(false);
-            refetch();
-          }}
-        />
+        <AdvertiserForm distributors={distributors} onClose={() => useStateForm(false)} onSaved={() => { useStateForm(false); refetch(); }} />
       )}
 
       {showMiscForm && (
-        <MiscellaneousForm
-          distributors={distributors}
-          onClose={() => setShowMiscForm(false)}
-          onSaved={() => {
-            setShowMiscForm(false);
-            refetch();
-          }}
-        />
+        <MiscellaneousForm distributors={distributors} onClose={() => setShowMiscForm(false)} onSaved={() => { setShowMiscForm(false); refetch(); }} />
       )}
 
       {editing && (
