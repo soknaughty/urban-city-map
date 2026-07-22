@@ -554,11 +554,11 @@ export default function TenantMapPortal({ params }: PageProps) {
                 <button onClick={() => setSelected(null)} className="rounded-full p-1.5 text-slate-500 hover:bg-slate-100" aria-label="Close"><X className="h-5 w-5" /></button>
               </div>
               
-              {/* 💡 ENHANCED UPSELL RULE: Container completely self-destructs if there is no string greeting text or logo image layout passed */}
-              {(selected.tip || selected.tip_image_url) && (selected.id === "distributor-hq" || selected.tier === "gold") && (
+              {/* 💡 ENHANCED UPSELL RULE: Protects Silver tier restrictions. Tips only show for Gold, Host HQ, or free Community Parks. */}
+              {(selected.tip || selected.tip_image_url) && (selected.id === "distributor-hq" || selected.tier === "gold" || selected.cat === "park") && (
                 <div className="mt-5 rounded-2xl border-2 p-4" style={{ borderColor: FOREST + "1F", backgroundColor: "#F0FDF4" }}>
                   {selected.tip && <p className="text-[14px] leading-relaxed text-slate-800">{selected.tip}</p>}
-                  {selected.tip_image_url && (
+                  {selected.tip_image_url && (selected.id === "distributor-hq" || selected.tier === "gold") && (
                     <img 
                       src={selected.tip_image_url} 
                       alt="Premium promo feature" 
